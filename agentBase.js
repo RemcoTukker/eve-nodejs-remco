@@ -1,4 +1,4 @@
-
+importScripts("dummy.js");
 
 // functions for sending stuff back to the main thread
 
@@ -19,6 +19,20 @@ store = function(key, value) {
 		
 	thread.emit('storeData', key, JSON.stringify(value));
 }
+
+// entry point function for invoking agent functions  TODO: perhaps merge this with invokeMethod? depends on how we're gonna handle the callbacks
+entryPoint = function(req) {
+	
+	
+	//check if the method exists from agent.getMethods? 
+	var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
+
+	//TODO: check type of result and so on; result = null in case of a void function.. etc...		
+	return result;   ///return value is used to send the response to the JSON RPC call
+
+}
+
+
 
 
 function agentBase() { //encapsulates all basic functionality that the agent can use
@@ -66,11 +80,13 @@ myAgent.myFunction = function(params) {
 
 	send("bla", "bla");
 	
+	var c = mul(a,b);
+
 	console.log("2");
 
-	invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, 1);
+	//invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, 1);
 	
 	console.log("3");
-	//return a + b;
+	return a + b + c;
 }
 
