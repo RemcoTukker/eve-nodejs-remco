@@ -2,7 +2,6 @@
 TODO:
 
 functionality:
-fix the ID in the JSON RPC reply
 get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that
 	also, its probably best to restart the thread after an error to prevent mem leaks etc (check)
 add sending new JSON RPC calls 
@@ -16,6 +15,7 @@ style:
 move dataStore in eve namespace?
 add a bool to Agent to ensure code loading output is only given once (instead of once per thread)
 rework invokeMethod and on("invokeMethod")
+ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
 
 optimization:
 move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint
@@ -37,6 +37,7 @@ do parameter parsing in the threads to make agent programmers life easier
 
 var http = require('http'),
     url = require('url'),
+	request = require('request'),
 	//webworker threads is better than TAGG ´cause this one lets you do importScripts
 	Threads = require('webworker-threads'); 
 	//Threads = require('threads_a_gogo'); 
@@ -114,7 +115,7 @@ function Agent(filename, url, threads)
 	//load the user file in the threads so that they are ready for execution
 	pool.all.eval("loadAgent(\"" + __dirname + filename + "\")", function(err, value) {
 		if (err === null) agentLoaded = true;
-			//TODO: in this case, completely fail the construction in some way
+			//TODO: if there is an error, completely fail the construction in some way (set acceptingRequests to false and remove agent at nextTick)
 	});
 	
 
@@ -122,20 +123,36 @@ function Agent(filename, url, threads)
 
 	this.sendRequest = function(request, callback) {
 		if (!acceptingRequests) {
-			callback(JSON.stringify({"id": 0, "result": null, "error":"Agent does not accept requests currently."})); 
+			try {
+				req = JSON.parse(request);
+				callback(JSON.stringify({"id": req.id, "result": null, "error":"Agent does not accept requests at the moment."})); 
+			} catch (e) {
+				callback(JSON.stringify({"id": null, "result": null, "error":"Please use a valid JSON RPC request."})); 
+			}
 			return;
 		}
 
 		pool.any.eval("entryPoint(" + request + ")", function(err, completionValue) {
+			
+			var id;
+			try { 
+ 				req = JSON.parse(request);
+				id = req.id;
+			} catch (e) {
+				callback(JSON.stringify({"id": null, "result": null, "error":"Please use a valid JSON RPC request."})); 
+				return;
+			}			
+
 			if (err != null) {
 				console.log("function returned with err " + err + " and value " + completionValue);
 				console.log("in reply to the following request: " + request);
 				console.log("stack trace: " + err.stack); 
-				callback(JSON.stringify({"id": 0, "result":null, "error":err.message})); 			
+				callback(JSON.stringify({"id": id, "result":null, "error":err.message})); 			
 			} else {
 				var result = JSON.parse(completionValue);
-				callback(JSON.stringify({"id":0, "result":result, "error":null})); 			
+				callback(JSON.stringify({"id": id, "result":result, "error":null})); 			
 			}
+
 		} );
 	}
 
@@ -160,6 +177,18 @@ function Agent(filename, url, threads)
 		//create and send the json rpc message (see Jos' work.. hrm no use, wasnt implemented yet)
 
 		console.log("got sendEveMessage event");	
+		
+		var options = {uri: destination, method: "POST", json: data }; //is data stringified already? I think so
+		
+		request(options, function(error, response, body) {
+			/* Do something here, preferably relay it back to a thread. Use state to relate it to the original request if necessary. 
+
+				error: An error when applicable (usually from the http.Client option, not the http.ClientRequest object) 
+				response: An http.ClientResponse object
+    			body: the response body (String or Buffer) (parsed already?)
+			*/
+
+		});		
 
 	});
 
@@ -312,7 +341,12 @@ eve.handleRequest = function (agentType, agentId, request, callback) {
 	if (targetAgentURL in eve.agentList) {
 		eve.agentList[targetAgentURL].sendRequest(request, callback);
 	} else {
-		callback(JSON.stringify({"id": agentId, "result": null, "error":"Requested agent does not exist here."})); 
+		try {
+			var req = JSON.parse(request);
+			callback(JSON.stringify({"id": req.id, "result": null, "error":"Requested agent does not exist here."})); 
+		} catch (e) {
+			callback(JSON.stringify({"id": null, "result": null, "error":"Please use a valid JSON RPC request."})); 
+		}
 	}
 }
 
@@ -359,7 +393,7 @@ eve.add("/myAgent.js");
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAdd", JSON.stringify({a:4, b:4}));
-eve.handleRequest("/myAgent.js", "1", JSON.stringify({method:"myFunction", params:{a:1, b:3}}), function(res) {console.log(res);});
+eve.handleRequest("/myAgent.js", "1", JSON.stringify({id:3, method:"myFunction", params:{a:1, b:3}}), function(res) {console.log(res);});
 
 
 /**

@@ -22,7 +22,7 @@ store = function(key, value) {
 // entry point function for invoking agent functions  
 // TODO: once we have better error information in the main thread, get rid of the try statements
 entryPoint = function(req) {
-		
+	
 	//check if the method exists from agent.getMethods? 
 	try {
 		var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
@@ -30,7 +30,7 @@ entryPoint = function(req) {
 		console.log("error!" + e.message + " " + e.stack);
 		var result = null;
 	}
-
+	
 	//TODO: check type of result and so on; result = null in case of a void function.. etc...		
 	return result;   ///return value is used to send the response to the JSON RPC call
 
