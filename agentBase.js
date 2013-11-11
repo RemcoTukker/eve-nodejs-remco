@@ -1,4 +1,3 @@
-importScripts("dummy.js");
 
 // functions for sending stuff back to the main thread
 
@@ -20,27 +19,43 @@ store = function(key, value) {
 	thread.emit('storeData', key, JSON.stringify(value));
 }
 
-// entry point function for invoking agent functions  TODO: perhaps merge this with invokeMethod? depends on how we're gonna handle the callbacks
+// entry point function for invoking agent functions  
+// TODO: once we have better error information in the main thread, get rid of the try statements
 entryPoint = function(req) {
-	
-	
+		
 	//check if the method exists from agent.getMethods? 
-	var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
+	try {
+		var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
+	} catch (e) {
+		console.log("error!" + e.message + " " + e.stack);
+		var result = null;
+	}
 
 	//TODO: check type of result and so on; result = null in case of a void function.. etc...		
 	return result;   ///return value is used to send the response to the JSON RPC call
 
 }
 
+//this function loads the agent code that the user wrote. This may facilitate getting stack traces out of the thread.
+//If possible (regarding getting useful stack traces), I'ld prefer the user to do a importScripts(agentBase.js) in 
+	//their code and do a pool.load(userAgent.js) from the main thread.
+// TODO: once we have better error information in the main thread, get rid of this function
+loadAgent = function(filename) {
+	
+	try {
+		importScripts(filename);
+	} catch (e) {
+		console.log("Loading " + filename + " failed! ");
+		console.log(e.message + " " + e.stack);
+		return;
+	}
 
+	console.log("loaded " + filename);
+
+}
 
 
 function agentBase() { //encapsulates all basic functionality that the agent can use
-	
-
-
-	
-
 	//thread.on(...)  //we're not sending any events from the main thread to here, so we dont have to listen...
 
 	// obligatory methods 
@@ -61,32 +76,4 @@ function agentBase() { //encapsulates all basic functionality that the agent can
 
 }
 
-
-// end user generated code example
-
-
-var myAgent = new agentBase(); //TODO: how does the caller in the main thread know what this object is called exactly? (right now it doesnt and thats nasty)
-								//also, coupling the name of the file to the agent object that is defined here is not so nice (filename should be irrelevant)
-//if we do it this way, myAgent cannot really be extracted as far as I could tell.. need to make a separate constructor function and set agentBase as prototype?
-
-myAgent.myFunction = function(params) {
-	
-	var a = parseInt(params.a);
-	var b = parseInt(params.b);
-	var result = a + b;
-	store("result", a + b);
-
-	console.log("myfunction called with " + a + " " + b);
-
-	send("bla", "bla");
-	
-	var c = mul(a,b);
-
-	console.log("2");
-
-	//invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, 1);
-	
-	console.log("3");
-	return a + b + c;
-}
 
