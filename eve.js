@@ -38,6 +38,7 @@ do parameter parsing in the threads to make agent programmers life easier
 var http = require('http'),
     url = require('url'),
 	request = require('request'),
+	Q = require('q'),
 	//webworker threads is better than TAGG ´cause this one lets you do importScripts
 	Threads = require('webworker-threads'); 
 	//Threads = require('threads_a_gogo'); 
@@ -195,20 +196,40 @@ function Agent(filename, url, threads)
 	var that = this; //there's prettier ways to do this.. doesnt matter... used later on in scheduling new tasks		
 
 	// event listener for invoking other agent methods
-	pool.on("invokeMethod", function(time, functionName, strParams, strStateKeys) {
+	pool.on("invokeMethod", function(time, functionName, strParams, strStateKeys, strRPCs) {
 		//recall all state that the new function call requires		
 		//and add the recalled state to the params object
 		//TODO: check wheter this is working as intended
 		params = JSON.parse(strParams);
 		stateKeys = JSON.parse(strStateKeys);
+		RPCs = JSON.parse(strRPCs);
 
 		console.log("got invokeMethod event");	
-		console.log(time + " " + functionName+ " " + params + " " + stateKeys );
+		console.log(time + " " + functionName + " " + params + " " + stateKeys );
+
+		// first send out RPCs
+/*
+http://stackoverflow.com/questions/16976573/chaining-an-arbitrary-number-of-promises-in-q
+
+		var buildCalls = function() {
+			var calls = [];
+			for (var i in stories) {
+				calls.push(myFunc(i));
+			}
+			return calls;
+		}
+		return Q.all(buildCalls());
+*/
+		var requestPromise = Q.denodify(request);
+		var promise = requestPromise(options);
+		var allPromise = Q.all([ ... ]);
 
 		for (key in stateKeys) {
 			console.log(key);
 			params[key] = agentData.recall(stateKeys[key]); 
 		}
+
+
 
 		console.log("got invokeMethod event");	
 		console.log(time + " " + functionName+ " " + JSON.stringify(params) + " " + JSON.stringify(stateKeys) );
@@ -267,8 +288,6 @@ function Agent(filename, url, threads)
 	//TODO: stash agent away Jos-style in case it is not used for a while
 	// perhaps even let a management agent do this? I really do want somebody to keep track of all messages anyway, for the pwetty
 	// graph visualization with moving packages (maybe make it optional if it has performance implications)
-
-
 
 }
 

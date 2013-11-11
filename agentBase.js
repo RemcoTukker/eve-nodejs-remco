@@ -1,12 +1,12 @@
 
 // functions for sending stuff back to the main thread
 
-invokeMethod = function(methodName, params, stateKeys, time) {
+invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 
 	console.log("sending invokeMethod event");
-	console.log('invokeMethod ' + time +" "+ methodName+" " + JSON.stringify(params)+" " + JSON.stringify(stateKeys));
+	console.log('invokeMethod ' + time + " " + methodName + " " + JSON.stringify(params) + " " JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
 	//parse this nicely in the events that the main thread is listening for
-	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys));
+	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys), JSON.stringify(RPCs));
 }
 	
 send = function(destination, data) {
@@ -71,8 +71,6 @@ function agentBase() { //encapsulates all basic functionality that the agent can
 	this.getUrls = function() {
 
 	}
-
-
 
 }
 
