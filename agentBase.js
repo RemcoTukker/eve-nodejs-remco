@@ -10,11 +10,6 @@ invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 	//parse this nicely in the events that the main thread is listening for
 	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys), JSON.stringify(RPCs));
 }
-	
-send = function(destination, data) {
-		
-	thread.emit('sendEveMessage', destination, JSON.stringify(data));
-}
 
 store = function(key, value) {
 		
@@ -44,14 +39,8 @@ entryPoint = function(req) {
 // TODO: once we have better error information in the main thread, get rid of this function
 loadAgent = function(filename) {
 	
-	try {
-		importScripts(filename);
-	} catch (e) {
-		console.log("Loading " + filename + " failed! ");
-		console.log(e.message + " " + e.stack);
-		return;
-	}
-
+	importScripts(filename);
+	
 	console.log("loaded " + filename);
 
 }

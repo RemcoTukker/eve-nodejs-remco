@@ -8,7 +8,7 @@ No nextTick() or setTimeout(), so, sorry, no async stuff in here!
 For now, the name of the file will be used as the name of the object that the functions are called on (thus, do var [filename] = new agentBase();)
 For now, all functions should take a single params argument
 
-The return value of a function will be used to answer the JSON RPC call
+The return value of a function will be used to answer the JSON RPC call  
 
 Save information with store(key, value); dont store state directly!
 All extra information that may be required can be obtained by invokeMethod: state or external JSON RPC calls. invokeMethod can also schedule a method in the 
@@ -16,6 +16,7 @@ All extra information that may be required can be obtained by invokeMethod: stat
 
 TODO:
 Only the functions described in the getMethod function are guaranteed to be available to the outside world 
+Have a transparent way of returning errors vs data to the JSON RPC request
 
 */
 
@@ -35,10 +36,7 @@ myAgent.myFunction = function(params) {
 	store("result", a + b);
 	console.log("myfunction called with " + a + " " + b);
 
-	send("bla", "bla");
-	
 	var c = mul(a,b);
-	//throw new Error("aae");
 	console.log("2");
 
 	//invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, {}, 1000);

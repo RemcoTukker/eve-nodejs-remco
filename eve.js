@@ -2,36 +2,40 @@
 TODO:
 
 functionality:
+see how to organize the agent code exactly, and if we want to give meaning to the filename
 get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that
-	also, its probably best to restart the thread after an error to prevent mem leaks etc (check)
-see how to organize the agent code exactly
-shortcut for requests from local agents
-bugfixes
+	also, its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check)
+bugfixes [...]
+do something useful with failed RPC requests
+small suite of test agents
 
 style:
-move dataStore in eve namespace?
-add a bool to Agent to ensure code loading output is only given once (instead of once per thread)
+let somebody look at this code that knows JS better...
+move everything back in an eve namespace
 rework invokeMethod and on("invokeMethod")
 ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
 rework persistent storage, its ugly now, 'cause it needs to know the url
 rework more stuff to use Q
 
+extras:
+do parameter parsing in the threads to make agent programmers life easier
+add extra event listeners to give the thread-side of the agent more of the node functionalities, 
+	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
+agent management functions node-side
+windows/mac compatibility (is it now?)
+
 optimization:
-move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint
+shortcut for requests from local agents (we dont need a http post request for that)
 hardcode some of the JSON error replies so that it doesnt have to stringify all the time
 when recalling state, dont add it to params, just keep it in a separate object.
 	that way we can keep objects in memory stringified, as well as params (removes need for a lot of parsing)
 make seperate event callbacks for the schedule and invoke events to minimize the number of checks and operations per event message
-move stuff down to c++, such as the data store
+move stuff down to c++ ?
+improve data store, perhaps a db?
 see if we want a global threadpool with some managing mechanism for keeping the threads around for an optimal time
 	instead of the threadpool per agent
+move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint
 
-extras:
-add extra event listeners to give the thread-side of the agent more of the node functionalities, 
-	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
-do parameter parsing in the threads to make agent programmers life easier
-agent management functions node-side
-windows compatibility
 
 */
 
@@ -39,14 +43,8 @@ var http = require('http'),
     url = require('url'),
 	request = require('request'),
 	Q = require('q'),
-	storage = require('node-persist'), //TODO: see if we want to replace this one with something better...
-	//webworker threads is better than TAGG ´cause this one lets you do importScripts
-	Threads = require('webworker-threads'); 
-	//Threads = require('threads_a_gogo'); 
-
-	//old stuff
-    //ManagerAgent = require('./agent/ManagerAgent.js'),
-	//couch_client = require('couch-client'),
+	storage = require('node-persist'), 
+	Threads = require('webworker-threads'); //webworker threads is better than TAGG ´cause this one lets you do importScripts
 
 // create namespace
 var eve = {};
@@ -59,13 +57,13 @@ storage.initSync();
 
 //dataStore object that becomes part of the main-thread-side of the agent
 function dataStore(url) {
-	var prefix = url.replace(/\//g,'');
+	var prefix = url.replace(/\//g,'');  // workaround for prefix with slash, otherwise fails silently..
 	var associativeArray = new Object();
 
 	this.save = function(key, value) {
 		//todo: add more logix here
 		associativeArray[key] = value;
-		storage.setItem(prefix + key, value); //TODO: prefix has a slash in it, fails silently.. (?)
+		storage.setItem(prefix + key, value); 
 		//storage.setItem(key, value);
 	}
 
@@ -123,6 +121,7 @@ function Agent(filename, url, threads)
 		}
 	});
 		///TODO: OK; here is async stuff happening that really should go in order, eg only accept requests after stuff was loaded and so on => Q
+		///           but actually, this should be fixed in a different way, only doing pool.load (myAgent) and having an importscript in there
 
 	//load the user file in the threads so that they are ready for execution
 	var firstAgent = false;
@@ -131,7 +130,8 @@ function Agent(filename, url, threads)
 			firstAgent = true;
 			if (err != null) {
 				console.log("Error: " + __dirname + filename + " could not be loaded; error: " + err.message + " " + err.stack);
-				//process.nextTick(eve.remove(JSON.parse(agentData.recall("url")), 1000)); //TODO: this doesnt work
+				var url = JSON.parse(agentData.recall("url"));
+				process.nextTick( function() { return remove(url); }, 1000); 					
 			} else {
 				console.log(filename + " loaded succesfully!");
 				acceptingRequests = true;
@@ -192,34 +192,12 @@ function Agent(filename, url, threads)
 		agentData.save(key, JSON.parse(value));  //would be nicer to store all data stringified, but we have to parse and stringify it again before sending anyway
 	});
 
-	// event listener to send messages
-/*
-	pool.on("sendEveMessage", function(destination, data)  {
-		//create and send the json rpc message (see Jos' work.. hrm no use, wasnt implemented yet)
-
-		console.log("got sendEveMessage event");	
-		
-		var options = {uri: destination, method: "POST", json: data }; //is data stringified already? I think so
-		
-		request(options, function(error, response, body) {
-			// Do something here, preferably relay it back to a thread. Use state to relate it to the original request if necessary. 
-			//
-			//	error: An error when applicable (usually from the http.Client option, not the http.ClientRequest object) 
-			//	response: An http.ClientResponse object
-    		//	body: the response body (String or Buffer) (parsed already?)
-			//
-
-		});		
-
-	});
-*/
 	var that = this; //there's prettier ways to do this.. doesnt matter... used later on in scheduling new tasks		
 
 	// event listener for invoking other agent methods
 	pool.on("invokeMethod", function(time, functionName, strParams, strStateKeys, strRPCs) {
 		//recall all state that the new function call requires		
 		//and add the recalled state to the params object
-		//TODO: check wheter this is working as intended
 		params = JSON.parse(strParams);
 		stateKeys = JSON.parse(strStateKeys);
 		RPCs = JSON.parse(strRPCs);
@@ -240,10 +218,9 @@ function Agent(filename, url, threads)
 
 			var n = 0;
 			for (key in RPCs) {
-					//TODO: do we still have the right order?
 				//console.log(RPCresults[n][0]); //this should be the
 				//console.log(RPCresults[n][1]);
-				params[key] = JSON.parse(RPCresults[n][1].result); //TODO: see if this works as intended (probably not)
+				params[key] = JSON.parse(RPCresults[n][1].result); 
 				n++;
 				console.log(key);
 			}
@@ -264,7 +241,7 @@ function Agent(filename, url, threads)
 				setTimeout(function() { return that.invokeMethod(functionName, JSON.stringify(params)); }, time);
 			}
 
-		}, function(err) {console.log("RPC requests failed " + err);} ); //TODO: either try again or just relay failure back to agent
+		}, function(err) {console.log("RPC requests failed " + err);} ); 
 
 	});
 
@@ -315,7 +292,8 @@ function Agent(filename, url, threads)
 
 eve.agentList = new Object(); 
 
-eve.add = function(filename, options) {
+//eve.add = function(filename, options) {
+function add(filename, options) {
 
 	//TODO  !!!!! we need stack traces from dying agents!!!! best solution: hack this into TAGG. 
 	//                 -1st alternative: add a debug option which lets you evaluate the agent in the main thread
@@ -352,7 +330,7 @@ eve.add = function(filename, options) {
 	return options.url;
 }
 
-eve.remove = function(url, timeout) { //timeout is for finishing existing threads
+function remove(url, timeout) { //timeout is for finishing existing threads
 
 	if (url in eve.agentList) {
 		eve.agentList[url].blockRequests(); 
@@ -371,7 +349,7 @@ eve.remove = function(url, timeout) { //timeout is for finishing existing thread
 	//TODO: add return value that makes sense	
 }
 
-/* functions for handling incoming RPS messages */
+/* functions for handling incoming RPC messages */
 
 eve.handleRequest = function (agentType, agentId, request, callback) {
 	
@@ -428,15 +406,16 @@ eve.listen = function (port, host) {
 
 //// test lines here
 
-eve.add("myAgent.js");
+add("myAgent.js");
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAdd", JSON.stringify({a:4, b:4}));
 setTimeout(function() {return eve.handleRequest("myAgent.js", "1", JSON.stringify({id:3, method:"myFunction", params:{a:1, b:3}}), function(res) {console.log(res);}); }, 1000);
 
+//setTimeout(function() {return remove("myAgent.js/1"); }, 2000);
 
 /**
  * nodejs exports
  */
 exports.listen = eve.listen;
-exports.add = eve.add;
+exports.add = add;
