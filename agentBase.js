@@ -3,8 +3,8 @@
 
 invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 
-	console.log("sending invokeMethod event");
-	console.log('invokeMethod ' + time + " " + methodName + " " + JSON.stringify(params) + " "  + JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
+	//console.log("sending invokeMethod event");
+	console.log('invoking Method: ' + time + " " + methodName + " " + JSON.stringify(params) + " "  + JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
 	//parse this nicely in the events that the main thread is listening for
 	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys), JSON.stringify(RPCs));
 }

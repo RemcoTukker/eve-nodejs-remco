@@ -10,10 +10,10 @@ small suite of test agents
 bugfixes [...]
 
 style:
+rework invokeMethod and on("invokeMethod")  (move most of that logic into threads, also improves performance)
+ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
 let somebody look at this code that knows JS better...
 move everything back in an eve namespace
-rework invokeMethod and on("invokeMethod")
-ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
 rework persistent storage, its ugly now, 'cause it needs to know the url
 rework more stuff to use Q
 
@@ -22,13 +22,11 @@ do parameter parsing in the threads to make agent programmers life easier
 add extra event listeners to give the thread-side of the agent more of the node functionalities, 
 	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
 agent management functions node-side
-windows/mac compatibility (is it now?)
 implement some locking mechanisms
 add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
 					(eg due to downtime, or due to slow RPC requests, or whatever...)
 
 optimization:
-shortcut for requests from local agents (we dont need a http post request for that)
 hardcode some of the JSON error replies so that it doesnt have to stringify all the time
 when recalling state, dont add it to params, just keep it in a separate object.
 	that way we can keep objects in memory stringified, as well as params (removes need for a lot of parsing)
@@ -37,7 +35,7 @@ move stuff down to c++ ?
 improve data store, perhaps a db?
 see if we want a global threadpool with some managing mechanism for keeping the threads around for an optimal time
 	instead of the threadpool per agent
-move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint
+move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint ? (at the cost of processing time; maybe not)
 
 
 */
@@ -48,6 +46,7 @@ var http = require('http'),
 	Q = require('q'),
 	storage = require('node-persist'), 
 	Threads = require('webworker-threads'); //webworker threads is better than TAGG ´cause this one lets you do importScripts
+
 
 // create namespace
 var eve = {};
@@ -196,10 +195,21 @@ function Agent(filename, url, threads)
 		// first send out RPCs
 
 		var requestPromise = Q.denodeify(request);
+		var localRequestPromise = Q.denodeify(eve.handleRequestWrapper);
 		var promiseArray = [];
 		for (key in RPCs) {
-			var options = {uri: RPCs[key].destination, method: "POST", json: RPCs[key].data }; //is data stringified already? I think so
-			promiseArray.push(requestPromise(options));
+			if (RPCs[key].destination.substring(0, eve.location.href.length) === eve.location.href ) {  //TODO: do this nicely with url
+				//also take care of localhost / ip address difference
+				//we have a local request, relay it immediately
+				var parts = RPCs[key].destination.split('/'), type = parts[3], id = parts[4];
+				console.log(type + " " +  id);
+				promiseArray.push(localRequestPromise(type, id, RPCs[key].data));
+				console.log("local call");
+			} else {
+				var options = {uri: RPCs[key].destination, method: "POST", json: RPCs[key].data };
+				promiseArray.push(requestPromise(options));
+				console.log("http call");
+			}
 		}
 
 		Q.all(promiseArray).done( function(RPCresults) {  
@@ -207,14 +217,15 @@ function Agent(filename, url, threads)
 			var n = 0;
 			for (key in RPCs) {
 				//console.log(RPCresults[n][0]); //this should be the
-				//console.log(RPCresults[n][1]);
+				console.log("RPC result: " + RPCresults[n][1]);
 				params[key] = JSON.parse(RPCresults[n][1].result); 
+				//TODO: ok. ATM, local requires JSON.parse(RPCresults[n][1]).result while http requires JSON.parse(RPCresults[n][1].result)
 				n++;
-				console.log(key);
+				//console.log(key);
 			}
 
 			for (key in stateKeys) {
-				console.log(key);
+				//console.log(key);
 				params[key] = agentData.recall(stateKeys[key]); 
 			}
 
@@ -342,7 +353,7 @@ function remove(url, timeout) { //timeout is for finishing existing threads
 eve.handleRequest = function (agentType, agentId, request, callback) {
 	
 	var targetAgentURL = agentType + "/" + agentId; //do we need this agentID?
-	console.log(targetAgentURL);
+	console.log("handling request: " + targetAgentURL + " " + request );
 	if (targetAgentURL in eve.agentList) {
 		eve.agentList[targetAgentURL].sendRequest(request, callback);
 	} else {
@@ -355,6 +366,11 @@ eve.handleRequest = function (agentType, agentId, request, callback) {
 	}
 }
 
+//to align it with the request function for the Q promises.. TODO: fix this more cleanly (eg, align all functions with Q promises 
+	//  or seperate them completely or ....)
+eve.handleRequestWrapper = function (agentType, agentId, request, callback) {
+	eve.handleRequest(agentType, agentId, JSON.stringify(request), function(response) { callback(null, "bla", JSON.parse(response)); });
+}
 
 /**
  * Start a server handling the HTTP requests
@@ -379,8 +395,7 @@ eve.listen = function (port, host) {
         });
 
         req.on("end", function() {
-            console.log(req.url);
-            console.log(data);
+            console.log("receiving request: " + req.url + data);
 
             eve.handleRequest(type, id, data, function(response) { 
 				console.log(response);
@@ -398,7 +413,7 @@ add("myAgent.js");
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
 //agentList[0].invokeMethod("myAdd", JSON.stringify({a:4, b:4}));
-setTimeout(function() {return eve.handleRequest("myAgent.js", "1", JSON.stringify({id:3, method:"myFunction", params:{a:1, b:3}}), function(res) {console.log(res);}); }, 1000);
+setTimeout(function() {return eve.handleRequest('myAgent.js', '1', JSON.stringify({id:3, method:'myFunction', params:{a:1, b:3}}), function(res) {console.log(res);}); }, 1000);
 
 //setTimeout(function() {return remove("myAgent.js/1"); }, 2000);
 

@@ -41,15 +41,15 @@ myAgent.myFunction = function(params) {
 	console.log("myfunction called with " + a + " " + b);
 
 	var c = mul(a,b);
-	console.log("2");
+	//console.log("2");
 
 	//invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, {}, 1000);
 	//invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
 	//					data:JSON.stringify({id:3, method:"myFunction", params: {a:1337, b:9}})}}, 500);
-	if (a === 1) invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
-						data:{id:3, method:"myFunction", params: {a:1337, b:result}}}}, 500);
+	if (a === 1) invokeMethod('myAgent.myFunction', {a:1}, {}, {b:{destination:'http://127.0.0.1:1337/myAgent.js/1', 
+						data:{id:3, method:'myFunction', params: {a:1337, b:result}}}}, 500);
 	
-	console.log("3");
+	//console.log("3");
 	return a + b + c;
 }
 
