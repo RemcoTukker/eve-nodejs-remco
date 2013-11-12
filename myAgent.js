@@ -13,6 +13,14 @@ The return value of a function will be used to answer the JSON RPC call
 Save information with store(key, value); dont store state directly!
 All extra information that may be required can be obtained by invokeMethod: state or external JSON RPC calls. invokeMethod can also schedule a method in the 
 	future. invokeMethod(methodName, params, stateKeys, RPCs, time) State cannot be recalled directly!
+methodName: think of it as the callback function within this agent (string)
+params:     info that you want to give the method from here  (associative array)
+stateKeys:  info that you want to give the method from the state (associative array)
+RPCs:		info that you want to give the method from a different agent (associative array)
+Time: 		timeout/delay in ms to use for the invocation of the method (int)
+
+The filename should be the same as the name of the object that is your agent (minus the .js). This protects you from writing two agent objects with the same 
+	name (as long as you keep the agent files in the same folder) and makes the agent code portable (prevents naming conflicts)
 
 TODO:
 Only the functions described in the getMethod function are guaranteed to be available to the outside world 
@@ -20,13 +28,9 @@ Have a transparent way of returning errors vs data to the JSON RPC request
 
 */
 
-mul = function(a,b) {
-	return a*b;
-}
+importScripts("agentBase.js");
 
-var myAgent = new agentBase(); //TODO: how does the caller in the main thread know what this object is called exactly? (right now it doesnt and thats nasty)
-								//also, coupling the name of the file to the agent object that is defined here is not so nice (filename should be irrelevant)
-//if we do it this way, myAgent cannot really be extracted as far as I could tell.. need to make a separate constructor function and set agentBase as prototype?
+var myAgent = Object.create(agentBase); 
 
 myAgent.myFunction = function(params) {
 	
@@ -48,3 +52,10 @@ myAgent.myFunction = function(params) {
 	console.log("3");
 	return a + b + c;
 }
+
+//helper functions that wont be accessible from outside:
+mul = function(a,b) {
+	return a*b;
+}
+
+

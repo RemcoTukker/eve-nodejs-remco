@@ -2,12 +2,12 @@
 TODO:
 
 functionality:
-see how to organize the agent code exactly, and if we want to give meaning to the filename
 get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that
-	also, its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check)
-bugfixes [...]
+its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check) 
 do something useful with failed RPC requests
+schedule a method invocation at the right time ("time" from the point the invocation was received, instead of "time" from the point the RPC calls return)
 small suite of test agents
+bugfixes [...]
 
 style:
 let somebody look at this code that knows JS better...
@@ -23,6 +23,9 @@ add extra event listeners to give the thread-side of the agent more of the node 
 	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
 agent management functions node-side
 windows/mac compatibility (is it now?)
+implement some locking mechanisms
+add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
+					(eg due to downtime, or due to slow RPC requests, or whatever...)
 
 optimization:
 shortcut for requests from local agents (we dont need a http post request for that)
@@ -61,7 +64,7 @@ function dataStore(url) {
 	var associativeArray = new Object();
 
 	this.save = function(key, value) {
-		//todo: add more logix here
+		//TODO: add more logix here
 		associativeArray[key] = value;
 		storage.setItem(prefix + key, value); 
 		//storage.setItem(key, value);
@@ -110,33 +113,18 @@ function Agent(filename, url, threads)
 	// loading code into threads on the fly is likely not very performant)
 	var pool = Threads.createPool(threads); 
 	var firstLoaded = false;
-	pool.load(__dirname + "/agentBase.js", function(err, completionValue) {
+	pool.load(__dirname + "/" + filename, function(err, completionValue) {
 		if (!firstLoaded) {
 			firstLoaded = true;		
 			if (err != null) {
-				console.log("Error: " + __dirname + "/agentBase.js could not be loaded; error: " + err.message + " " + err.stack);				
-			} else {
-				console.log("agentBase.js loaded succesfully!");
-			}
-		}
-	});
-		///TODO: OK; here is async stuff happening that really should go in order, eg only accept requests after stuff was loaded and so on => Q
-		///           but actually, this should be fixed in a different way, only doing pool.load (myAgent) and having an importscript in there
-
-	//load the user file in the threads so that they are ready for execution
-	var firstAgent = false;
-	pool.all.eval("loadAgent(\"" + __dirname + "/" + filename + "\")", function(err, value) {
-		if (!firstAgent) {
-			firstAgent = true;
-			if (err != null) {
-				console.log("Error: " + __dirname + filename + " could not be loaded; error: " + err.message + " " + err.stack);
+				console.log("Error: " + __dirname + "/" + filename + " could not be loaded; error: " + err.message + " " + err.stack);				
 				var url = JSON.parse(agentData.recall("url"));
 				process.nextTick( function() { return remove(url); }, 1000); 					
 			} else {
-				console.log(filename + " loaded succesfully!");
+				console.log("agentBase.js loaded succesfully!");
 				acceptingRequests = true;
 			}
-		}		
+		}
 	});
 
 	/* functions for getting the thread to work for us */

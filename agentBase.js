@@ -1,8 +1,6 @@
 
 // functions for sending stuff back to the main thread
 
-
-
 invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 
 	console.log("sending invokeMethod event");
@@ -33,37 +31,11 @@ entryPoint = function(req) {
 
 }
 
-//this function loads the agent code that the user wrote. This may facilitate getting stack traces out of the thread.
-//If possible (regarding getting useful stack traces), I'ld prefer the user to do a importScripts(agentBase.js) in 
-	//their code and do a pool.load(userAgent.js) from the main thread.
-// TODO: once we have better error information in the main thread, get rid of this function
-loadAgent = function(filename) {
-	
-	importScripts(filename);
-	
-	console.log("loaded " + filename);
 
-}
+var agentBase = {};
 
-
-function agentBase() { //encapsulates all basic functionality that the agent can use
-	//thread.on(...)  //we're not sending any events from the main thread to here, so we dont have to listen...
-
-	// obligatory methods 
-	// TODO: help users with taking care of these
-	this.getMethods = function() {  ///TODO: preferably add some sugar functions to allow functions with parameter lists instead of a parameter object
-
-	}
-
-	this.getId = function() {
-
-	}
-
-	this.getUrls = function() {
-
-	}
-
-}
-
+// TODO: add standard getMethods, getId, and getUrls functions
+// TODO: help users with taking care of these
+// TODO: preferably add some sugar functions to allow functions with parameter lists instead of a parameter object
 
 
