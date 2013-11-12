@@ -4,6 +4,8 @@ EVE
     It has implementations on various platforms. 
     This is a node.js implementation. 
 
+	Documentation of Eve is available on http://almende.github.com/eve
+
     Author:  Remco Tukker, 2013; Jos de Jong 2011-2012
     License: Apache License, Version 2.0 
              http://www.apache.org/licenses/LICENSE-2.0

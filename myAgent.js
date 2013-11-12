@@ -3,7 +3,7 @@
 Coding agents:
 
 No fancy NodeJS stuff, no require, etc (use importScripts(filename) to load external js files)
-No nextTick() or setTimeout()
+No nextTick() or setTimeout(), so, sorry, no async stuff in here!
 
 For now, the name of the file will be used as the name of the object that the functions are called on (thus, do var [filename] = new agentBase();)
 For now, all functions should take a single params argument
@@ -41,7 +41,11 @@ myAgent.myFunction = function(params) {
 	//throw new Error("aae");
 	console.log("2");
 
-	invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, 500);
+	//invokeMethod("myAgent.myFunction", {a:1}, {b:"result"}, {}, 1000);
+	//invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
+	//					data:JSON.stringify({id:3, method:"myFunction", params: {a:1337, b:9}})}}, 500);
+	if (a === 1) invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
+						data:{id:3, method:"myFunction", params: {a:1337, b:result}}}}, 500);
 	
 	console.log("3");
 	return a + b + c;
