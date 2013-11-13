@@ -31,6 +31,38 @@ entryPoint = function(req) {
 
 }
 
+invokeCallback = function(methodName, params, state, RPCresults) {
+	
+	console.log("invoking callback function " + methodName);
+
+	//try to combine params, state and RPCresults in one object
+	for (var key in state) {
+		params[key] = state[key]; 
+	}
+
+	for (var key in RPCresults) {
+		if (RPCresults[key].state === "fulfilled" && RPCresults[key].value.error === null) {
+			params[key] = RPCresults[key].value.result; 
+		} else {
+			params[key] = undefined; //TODO: do we need more intelligent stuff?
+		}
+	}
+
+	//remove the myAgent. from beginning of method name, if it is there
+	if ("myAgent" ===  methodName.substr(0, methodName.indexOf('.'))) {
+		methodName = methodName.substr(methodName.indexOf('.') + 1, methodName.length);
+	}
+
+	try {
+		var result = myAgent[methodName](params); //perfect / safe? except that we dont know the name of the agent yet...
+	} catch (e) {
+		console.log("error!" + e.message + " " + e.stack);
+		var result = null;
+	}
+
+	return result; 
+} 
+
 
 var agentBase = {};
 

@@ -1,30 +1,31 @@
 /*
 TODO:
 
+bugfixes:
+
 functionality:
 get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that
 its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check) 
-do something useful with failed RPC requests
-schedule a method invocation at the right time ("time" from the point the invocation was received, instead of "time" from the point the RPC calls return)
-small suite of test agents
-bugfixes [...]
-
-style:
-rework invokeMethod and on("invokeMethod")  (move most of that logic into threads, also improves performance)
-ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
-let somebody look at this code that knows JS better...
-move everything back in an eve namespace
-rework persistent storage, its ugly now, 'cause it needs to know the url
-rework more stuff to use Q
-
-extras:
 do parameter parsing in the threads to make agent programmers life easier
 add extra event listeners to give the thread-side of the agent more of the node functionalities, 
 	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
 agent management functions node-side
 implement some locking mechanisms
-add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
+Add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
 					(eg due to downtime, or due to slow RPC requests, or whatever...)
+Also, have a setting that the RPCs / state collection should only start right before an invocation instead of immediately
+			(perhaps with a default 100 ms before callback)
+Also, make schedule persistent
+small suite of test agents
+introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
+
+style:
+ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
+let somebody look at this code that knows JS better...
+move everything back in an eve namespace
+rework persistent storage, its ugly now, 'cause it needs to know the url
+rework more stuff to use Q
+be more consistent with parsing / stringifying
 
 optimization:
 hardcode some of the JSON error replies so that it doesnt have to stringify all the time
@@ -37,6 +38,8 @@ see if we want a global threadpool with some managing mechanism for keeping the 
 	instead of the threadpool per agent
 move Agent (and perhaps also dataStore) functions to a prototype to reduce memory footprint ? (at the cost of processing time; maybe not)
 
+stuff to check:
+when agent is removed, what happens with already scheduled callbacks?
 
 */
 
@@ -139,6 +142,8 @@ function Agent(filename, url, threads)
 			return;
 		}
 
+		console.log
+
 		pool.any.eval("entryPoint(" + request + ")", function(err, completionValue) {
 			
 			var id;
@@ -163,13 +168,13 @@ function Agent(filename, url, threads)
 		} );
 	}
 
-	//function for running a function in a thread
-	this.invokeMethod = function(methodName, params) {
-		if (!acceptingRequests) return;
+	this.invokeCallback = function(methodName, params, state, RPCresults) {
+		if (!acceptingRequests) return;  //questionable if we want this.. perhaps seperate external request blocking and
+											//invokeCallbacks blocking?		
+		
+		console.log("invokeCallback(" + methodName + "," + params + "," + state + "," + RPCresults + ")");
+		pool.any.eval("invokeCallback(\"" + methodName + "\"," + params + "," + state + "," + RPCresults + ")");
 
-			console.log("invoking method " + methodName + '(' + params + ')');        
-
-			pool.any.eval(methodName + '(' + params + ')');
 	}
 
 	// ********* Handlers for events that can be generated in the threads ***************
@@ -192,13 +197,19 @@ function Agent(filename, url, threads)
 		console.log("got invokeMethod event");	
 		console.log(time + " " + functionName + " " + params + " " + stateKeys );
 
+		//convert timeout to date (TODO: check type of time)
+		var executionDate = new Date(); 
+		executionDate.setMilliseconds(executionDate.getMilliseconds() + Number(time));
+
 		// first send out RPCs
 
+		//build a promise array
 		var requestPromise = Q.denodeify(request);
 		var localRequestPromise = Q.denodeify(eve.handleRequestWrapper);
 		var promiseArray = [];
 		for (key in RPCs) {
-			if (RPCs[key].destination.substring(0, eve.location.href.length) === eve.location.href ) {  //TODO: do this nicely with url
+			if (RPCs[key].destination.substring(0, eve.location.href.length) === eve.location.href ) {  
+				//TODO: do this^ nicely with url
 				//also take care of localhost / ip address difference
 				//we have a local request, relay it immediately
 				var parts = RPCs[key].destination.split('/'), type = parts[3], id = parts[4];
@@ -212,35 +223,33 @@ function Agent(filename, url, threads)
 			}
 		}
 
-		Q.all(promiseArray).done( function(RPCresults) {  
+		//
+		Q.allSettled(promiseArray).then( function(RPCarray) {  
 
 			var n = 0;
+			var RPCresults = {};
+
+			//organize the results a bit to make sure we dont send all information that we 
+				// get (a lot from http requests!), but only the actual results
 			for (key in RPCs) {
-				//console.log(RPCresults[n][0]); //this should be the
-				console.log("RPC result: " + RPCresults[n][1]);
-				params[key] = JSON.parse(RPCresults[n][1].result); 
-				//TODO: ok. ATM, local requires JSON.parse(RPCresults[n][1]).result while http requires JSON.parse(RPCresults[n][1].result)
-				n++;
-				//console.log(key);
+				RPCresults[key] = {};
+				RPCresults[key].state = RPCarray[n].state;
+				RPCresults[key].value = RPCarray[n].value[1];
+				n++
 			}
 
+			var state = {};
 			for (key in stateKeys) {
-				//console.log(key);
-				params[key] = agentData.recall(stateKeys[key]); 
+				state[key] = agentData.recall(stateKeys[key]); 
 			}
-
-			console.log("invoking method with the following parameters");	
-			console.log(time + " " + functionName + " " + JSON.stringify(params) );
-		
-			//eve.handleRequest("/myAgent.js", "1", JSON.stringify({method:"myFunction", params:{a:1, b:3}}), function(res) {console.log(res);});
-			
-			if (time == 0) { //check how this statement evaluates in edge cases (undefined etc)
-				process.nextTick(function() { return that.invokeMethod(functionName, JSON.stringify(params)); });
+	
+			var timeDifference = executionDate - Date.now();
+			if (timeDifference <= 0) {
+				process.nextTick(function() { return that.invokeCallback(functionName, strParams, JSON.stringify(state), JSON.stringify(RPCresults) ); });
 			} else { 
-				setTimeout(function() { return that.invokeMethod(functionName, JSON.stringify(params)); }, time);
+				setTimeout(function() { return that.invokeCallback(functionName, strParams, JSON.stringify(state), JSON.stringify(RPCresults) ); }, timeDifference);
 			}
-
-		}, function(err) {console.log("RPC requests failed " + err);} ); 
+		}).done(); 
 
 	});
 
@@ -257,7 +266,7 @@ function Agent(filename, url, threads)
 	}
 
 	this.resumeRequests = function() {
-		//TODO: only allow if we have a threadpool
+		//TODO: only allow if we have a functional threadpool
 		acceptingRequests = true;
 	}
 
@@ -410,9 +419,6 @@ eve.listen = function (port, host) {
 //// test lines here
 
 add("myAgent.js");
-//agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
-//agentList[0].invokeMethod("myAgent.myFunction", JSON.stringify({a:4, b:4}));
-//agentList[0].invokeMethod("myAdd", JSON.stringify({a:4, b:4}));
 setTimeout(function() {return eve.handleRequest('myAgent.js', '1', JSON.stringify({id:3, method:'myFunction', params:{a:1, b:3}}), function(res) {console.log(res);}); }, 1000);
 
 //setTimeout(function() {return remove("myAgent.js/1"); }, 2000);
