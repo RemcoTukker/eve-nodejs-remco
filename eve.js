@@ -18,6 +18,7 @@ Also, have a setting that the RPCs / state collection should only start right be
 Also, make schedule persistent
 small suite of test agents
 introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
+make node serve some webpages with status information
 
 style:
 ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
@@ -25,12 +26,11 @@ let somebody look at this code that knows JS better...
 move everything back in an eve namespace
 rework persistent storage, its ugly now, 'cause it needs to know the url
 rework more stuff to use Q
-be more consistent with parsing / stringifying
+be more consistent / reluctant with parsing / stringifying
+make a nice package out of it
 
 optimization:
 hardcode some of the JSON error replies so that it doesnt have to stringify all the time
-when recalling state, dont add it to params, just keep it in a separate object.
-	that way we can keep objects in memory stringified, as well as params (removes need for a lot of parsing)
 make seperate event callbacks for the schedule and invoke events to minimize the number of checks and operations per event message
 move stuff down to c++ ?
 improve data store, perhaps a db?
@@ -258,7 +258,7 @@ function Agent(filename, url, threads)
 	this.stop = function() {
 		//console.log("rude" + pool.totalThreads());
 		acceptingRequests = false;
-		pool.destroy(true); //this destroys threads //TODO: gives error, cause pool is already destroyed.. fix this!
+		pool.destroy(true); //this destroys threads 
 	}
 
 	this.blockRequests = function() {
@@ -351,10 +351,10 @@ function remove(url, timeout) { //timeout is for finishing existing threads
 		}, timeout); 
 		console.log("Agent " + url + " will be removed after " + timeout + " ms.");
 	} else {
-		console.log("Warning: Failed to remove agent at " + url + "; doesnt exist!");
+		//TODO: see if we can safely do this..		
+		//return new Error("Warning: Failed to remove agent at " + url + "; doesnt exist!");
 	}
 
-	//TODO: add return value that makes sense	
 }
 
 /* functions for handling incoming RPC messages */
@@ -416,9 +416,8 @@ eve.listen = function (port, host) {
 };
 
 
-//// test lines here
-
-add("myAgent.js");
+//// test lines here 
+//to get something running:
 setTimeout(function() {return eve.handleRequest('myAgent.js', '1', JSON.stringify({id:3, method:'myFunction', params:{a:1, b:3}}), function(res) {console.log(res);}); }, 1000);
 
 //setTimeout(function() {return remove("myAgent.js/1"); }, 2000);

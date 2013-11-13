@@ -19,6 +19,8 @@ var eve                   = require('./eve.js');
 //eve.add(GoogleDirectionsAgent);
 //eve.add(GoogleCalendarAgent);
 
+eve.add("myAgent.js");
+
 // start the eve server
 eve.listen(PORT, HOST);
 console.log('Eve running at http://' + HOST + ':' + PORT + '/');
