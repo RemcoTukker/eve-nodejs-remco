@@ -19,6 +19,7 @@ Also, make schedule persistent
 small suite of test agents
 introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
 make node serve some webpages with status information
+server-wide notifications
 
 style:
 ID in the JSON RPC reply: either move JSON RPC parsing into the thread (also better performance) or do it when the request comes in
@@ -115,19 +116,6 @@ function Agent(filename, url, threads)
 	// loading code into threads on the fly is likely not very performant)
 	var pool = Threads.createPool(threads); 
 	var firstLoaded = false;
-	pool.load(__dirname + "/" + filename, function(err, completionValue) {
-		if (!firstLoaded) {
-			firstLoaded = true;		
-			if (err != null) {
-				console.log("Error: " + __dirname + "/" + filename + " could not be loaded; error: " + err.message + " " + err.stack);				
-				var url = JSON.parse(agentData.recall("url"));
-				process.nextTick( function() { return remove(url); }, 1000); 					
-			} else {
-				console.log("agentBase.js loaded succesfully!");
-				acceptingRequests = true;
-			}
-		}
-	});
 
 	/* functions for getting the thread to work for us */
 
@@ -293,6 +281,21 @@ function Agent(filename, url, threads)
 	//TODO: stash agent away Jos-style in case it is not used for a while
 	// perhaps even let a management agent do this? I really do want somebody to keep track of all messages anyway, for the pwetty
 	// graph visualization with moving packages (maybe make it optional if it has performance implications)
+
+	//Finally, load the agent code
+	pool.load(__dirname + "/" + filename, function(err, completionValue) {
+		if (!firstLoaded) {
+			firstLoaded = true;		
+			if (err != null) {
+				console.log("Error: " + __dirname + "/" + filename + " could not be loaded; error: " + err.message + " " + err.stack);				
+				var url = JSON.parse(agentData.recall("url"));
+				process.nextTick( function() { return remove(url); }, 1000); 					
+			} else {
+				console.log("agentBase.js loaded succesfully!");
+				acceptingRequests = true;
+			}
+		}
+	});
 
 }
 

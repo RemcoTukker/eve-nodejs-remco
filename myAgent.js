@@ -26,11 +26,87 @@ TODO:
 Only the functions described in the getMethod function are guaranteed to be available to the outside world 
 Have a transparent way of returning errors vs data to the JSON RPC request
 
+Do we need a special constructor in which we can send initializing messages or can we just do that anywhere? 
+Probably better to have a special constructor! Also more clear that in there you can set "static variables"
+Also, we need startup parameters
+preferably, seperate init every thread (for static variables in the thread) and init once (for storing variables in memory)
+
 */
 
 importScripts("agentBase.js");
 
 var myAgent = Object.create(agentBase); 
+
+
+var neighbours = [];
+var myNumber;
+
+//TODO: store timestep = 0 in the beginning; or, faster,  interpret undefined as 0
+
+myAgent.init = function(params) {
+	var n = params.n;
+	myNumber = n;
+	if (n >= 20) neighbours.push(n-20); //upper neighbour
+	if (n < 180) neighbours.push(n+20); //lower neighbour
+	if (n % 20 != 0) neighbours.push(n-1); //left neighbour
+	if (n % 20 != 19) neighbours.push(n+1); //right neighbour
+	if ((n >= 20) && (n % 20 != 0)) neighbours.push(n-21); //upper left
+	if ((n >= 20) && (n % 20 != 19)) neighbours.push(n-19); //upper right
+	if ((n < 180) && (n % 20 != 0)) neighbours.push(n+19); //lower left
+	if ((n < 180) && (n % 20 != 19)) neighbours.push(n+21); //lower right
+}
+
+myAgent.collectResults = function(params) {
+	var origin = params.origin;
+	var timeStep = params.timestep;
+	var name = timeStep.toString() + origin.toString();
+	store(name, params.value);
+
+	var stateObject = {};
+	stateObject.living = "living";
+	stateObject.timeStep = "timeStep";
+	//add the states of the neighbours
+	for (var i = 0; i < neighbours.length; i++) {
+		stateObject[neighbours[i].toString()] = timeStep.toString() + neighbours[i].toString();
+	}
+
+	invokeMethod('myAgent.checkAllValues', {name:params.value}, stateObject ,{}, 0);
+}
+
+myAgent.checkAllValues = function(params) {
+	var sum = 0;
+	for (var i = 0; i < neighbours.length; i++) {
+		if (params[neighbours[i].toString()] === undefined) {
+			return; //break out, dont do anything, we dont have all required data yet
+		} else {
+			sum = sum + params[neighbours[i]];
+		}
+	}
+
+	//see what our state is in the next timestep
+	var livingNow = params.living;
+	if (livingNow) {
+		if (sum < 2 || sum > 3) livingNow = false;
+	} else {
+		if (sum == 3) livingNow = true;
+	}
+
+	var currentTimeStep = params.timeStep + 1;
+	//TODO: store new currentTimeStep and livingNow
+
+	var value = livingNow ? 1 : 0;
+	var RPCobject = {};
+	for (var i = 0; i < neighbours.length; i++) {
+		RPCobject[i] = {'destination':'http://127.0.0.1:1337/myAgent.js/' + neighbours[i].toString(), 
+								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
+	}
+
+	invokeMethod('', {}, {}, RPCobject, 0);
+	//TODO: make sure we dont trip up anything with empty callback function string
+
+	return;
+}
+
 
 myAgent.myFunction = function(params) {
 	
