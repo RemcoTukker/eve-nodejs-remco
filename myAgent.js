@@ -41,9 +41,15 @@ var myAgent = Object.create(agentBase);
 var neighbours = [];
 var myNumber;
 
-//TODO: store timestep = 0 in the beginning; or, faster,  interpret undefined as 0
+/*
+Two possible models for game of life: either send your neighbours as soon as you know your new state, or poll your neighbours untill you get something back
 
-myAgent.init = function(params) {
+Chosen now: send neighbours as soon as you know
+
+*/
+
+myAgent.initAll = function(params) {   ///use this function to store information in this thread; in general, use only for static stuff!
+
 	var n = params.n;
 	myNumber = n;
 	if (n >= 20) neighbours.push(n-20); //upper neighbour
@@ -54,6 +60,31 @@ myAgent.init = function(params) {
 	if ((n >= 20) && (n % 20 != 19)) neighbours.push(n-19); //upper right
 	if ((n < 180) && (n % 20 != 0)) neighbours.push(n+19); //lower left
 	if ((n < 180) && (n % 20 != 19)) neighbours.push(n+21); //lower right
+
+}
+
+myAgent.initOnce = function(params) {  //use this function to start activity; its called once per agent after initialization
+
+	var livingNow = (Math.random() < .5);
+	var timeStep = 0;
+	store("timeStep", timeStep);
+	store("living", livingNow);
+
+	var value = livingNow ? 1 : 0;
+	var RPCobject = {};
+	for (var i = 0; i < neighbours.length; i++) {
+		RPCobject[i] = {'destination':'http://127.0.0.1:1337/myAgent.js/' + neighbours[i].toString(), 
+								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
+	}
+
+	invokeMethod('checkIfMessageArrived', {}, {}, RPCobject, 0);
+
+}
+
+myAgent.checkIfMessageArrived = function(params) {
+
+	//todo: resend if it didnt arrive for some reason (some agent that was temporarily out of order?)
+
 }
 
 myAgent.collectResults = function(params) {
@@ -92,7 +123,11 @@ myAgent.checkAllValues = function(params) {
 	}
 
 	var currentTimeStep = params.timeStep + 1;
-	//TODO: store new currentTimeStep and livingNow
+
+	//store new currentTimeStep and livingNow	
+	store("timeStep", currentTimeStep);
+	store("living", livingNow);
+	
 
 	var value = livingNow ? 1 : 0;
 	var RPCobject = {};
@@ -101,9 +136,8 @@ myAgent.checkAllValues = function(params) {
 								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
 	}
 
-	invokeMethod('', {}, {}, RPCobject, 0);
-	//TODO: make sure we dont trip up anything with empty callback function string
-
+	invokeMethod('checkIfMessageArrived', {}, {}, RPCobject, 0);
+	
 	return;
 }
 
