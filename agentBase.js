@@ -4,7 +4,7 @@
 invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 
 	//console.log("sending invokeMethod event");
-	console.log('invoking Method: ' + time + " " + methodName + " " + JSON.stringify(params) + " "  + JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
+	//console.log('invoking Method: ' + time + " " + methodName + " " + JSON.stringify(params) + " "  + JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
 	//parse this nicely in the events that the main thread is listening for
 	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys), JSON.stringify(RPCs));
 }
@@ -33,19 +33,20 @@ entryPoint = function(req) {
 
 invokeCallback = function(methodName, params, state, RPCresults) {
 	
-	console.log("invoking callback function " + methodName);
+	//console.log("invoking callback function " + methodName);
 
 	//try to combine params, state and RPCresults in one object
 	for (var key in state) {
 		params[key] = state[key]; 
 	}
-
+	console.log("RPCresults: " + JSON.stringify(RPCresults));
 	for (var key in RPCresults) {
-		if (RPCresults[key].state === "fulfilled" && RPCresults[key].value.error === null) {
-			params[key] = RPCresults[key].value.result; 
+		if (RPCresults[key].state === "fulfilled") { //&& RPCresults[key].value.error === null) { //TODO: fix this again
+			params[key] = RPCresults[key].value; 
 		} else {
 			params[key] = undefined; //TODO: do we need more intelligent stuff?
 		}
+		console.log("RPC: " + key + " " + params[key]);
 	}
 
 	//remove the myAgent. from beginning of method name, if it is there
