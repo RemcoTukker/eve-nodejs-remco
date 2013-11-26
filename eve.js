@@ -5,8 +5,6 @@ bugfixes:
 Add typechecking everywhere where that could go wrong
 
 regressions:
-ID in the JSON RPC reply, fix those properly
-in case promise is rejected in RPC call, move reason to error field of JSON RPC reply (in case of local calls); dont bother agent with promises
 
 functionality:
 get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that (see below)
@@ -14,7 +12,6 @@ its probably best to restart the thread after an uncaught error to prevent mem l
 do parameter parsing in the threads to make agent programmers life easier
 add extra event listeners to give the thread-side of the agent more of the node functionalities, 
 	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
-agent management functions node-side
 implement some locking mechanisms
 Add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
 					(eg due to downtime, or due to slow RPC requests, or whatever...)
@@ -22,12 +19,13 @@ Also, have a setting that the RPCs / state collection should only start right be
 					(perhaps with a default 100 ms before callback)
 Also, make schedule persistent
 introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
-make node serve some webpages with status information
-server-wide notifications / starting / stopping
-publish subscribe 
+* make node serve some webpages with status information
+* server-wide notifications / starting / stopping
+* publish subscribe 
+agent management functions node-side
 
 style:
-be more consistent in where to apply stringify / parsing, to make it more transparent
+prettier comments and function descriptions
 let somebody look at this code that knows JS better...
 rework persistent storage, its ugly now, 'cause it needs to know the url
 
@@ -259,12 +257,27 @@ eve.Agent = function(filename, uri, threads) {
 
 }
 
+eve.managementAgent = function() {
+	//
+	this.requestPromise = function(request) {  //should this function be async to line up with normal agents function?
+		//parse request
+
+		//do useful stuff, such as sending back stuff
+
+		//should be able to answer following requests: start, pause and stop agents, list agents, messages sent in a time window, server status info, agents details
+
+	}
+
+
+
+}
+
+
 /* functions for keeping track of all the instantiated agents */
 
 eve.agentList = {};
 
 eve.add = function(filename, options) {
-//function add(filename, options) {
 
 	// TODO: check that options.uri and options.threads are of the right type and check that options even exists 
 	var options = new Object(); // TODO see how to do this properly
@@ -275,20 +288,18 @@ eve.add = function(filename, options) {
 	if (options.uri === undefined || (options.uri in eve.agentList)) {
 
 		var number = 1;
-		var proposedUri = "/" + filename + "/" + number; //maybe not ideal to use filename here... 
+		var proposedUri = "/agents/" + filename + "/" + number; //maybe not ideal to use filename here... 
 		while (proposedUri in eve.agentList) {
 			number++;
-			proposedUri = "/" + filename + "/" + number;
-		} 
+			proposedUri = "/agents/" + filename + "/" + number;
+		}
 		
 		options.uri = proposedUri;
-		
 	}
 	
 	eve.agentList[options.uri] = new eve.Agent(filename, options.uri, options.threads);
 	
 	console.log("Added agent from " + filename + " at " + options.uri + " with " + options.threads + " threads."); 
-
 	return options.uri;
 }
 
@@ -331,9 +342,9 @@ eve.requestPromise = function(RPC) {
 	
 	//first find out whether we have a local request or a http request:
 	if ( ((dest.hostname == "localhost") || (dest.hostname == eve.location.host) ) && (dest.port == eve.location.port) ) {
-		//console.log("local call "); // to " + dest.pathname + " " + JSON.stringify(RPCs[key].data));  //we have a local request
+		console.log("local call "); // to " + dest.pathname + " " + JSON.stringify(RPCs[key].data));  //we have a local request
 
-		return eve.handleRequestPromise({'uri': dest.pathname, 'json': JSON.stringify(RPCs[key].data)})
+		return eve.handleRequestPromise({'uri': dest.pathname, 'json': JSON.stringify(RPC.data)})
 		.then(function(val) {
 			return JSON.parse(val);
 		}, function(err) {
@@ -342,7 +353,7 @@ eve.requestPromise = function(RPC) {
 		});
 
 	} else {
-		//console.log("http call");				//we have a http request
+		console.log("http call");				//we have a http request
 		var httpRequestPromise = Q.denodeify(request);
 	
 		return httpRequestPromise({uri: RPC.destination, method: "POST", json: RPC.data })
@@ -365,34 +376,46 @@ eve.listen = function (port, host) {
     eve.location.href = "http://" + host + ":" + port, eve.location.port = port, eve.location.host = host;
 
     http.createServer(function (req, res) {
-        var data = "", pathname = url.parse(req.url).pathname;
+        var pathname = url.parse(req.url).pathname;
         
-        req.on("data", function(chunk) { data += chunk; });
+		var prefix = pathname.split('/')[1];
+		if (prefix == 'agents') { //agent request, route to agents
 
-        req.on("end", function() {
-            console.log("receiving request: " + req.url + data);
+			var data = "";
+		    req.on("data", function(chunk) { data += chunk; });
 
-			eve.handleRequestPromise({'uri':pathname, 'json':data})
-			.then(function(value) {
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.end(value);  
-			})
-			.fail(function(err) {  //assemble the error message based on rejected promise and request
-				parsedRPC = JSON.parse(data);
-				if (parsedRPC.id === undefined) {
+		    req.on("end", function() {
+		        console.log("receiving request: " + req.url + data);
+
+				eve.handleRequestPromise({'uri':pathname, 'json':data}) //TODO: make use of requestPromise? Only we then need to parse and stringify again...
+				.then(function(value) {
+		            res.writeHead(200, {'Content-Type': 'application/json'});
+		            res.end(value);  
+				})
+				.fail(function(err) {  //assemble the error message based on rejected promise and request
+					parsedRPC = JSON.parse(data);
+					if (parsedRPC.id === undefined) {
+						res.writeHead(200, {'Content-Type': 'application/json'});
+		            	res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs (include ID); moreover: " + err}));
+					} else {
+						res.writeHead(200, {'Content-Type': 'application/json'});
+		            	res.end(JSON.stringify({id:parsedRPC.id, result:null, error:err}));
+					}
+				})
+				.fail(function(err) { //special message in case we couldnt parse the message (most likely..)
 					res.writeHead(200, {'Content-Type': 'application/json'});
-                	res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs (include ID); moreover: " + err}));
-				} else {
-					res.writeHead(200, {'Content-Type': 'application/json'});
-                	res.end(JSON.stringify({id:parsedRPC.id, result:null, error:err}));
-				}
-			})
-			.fail(function(err) { //special message in case we couldnt parse the message (most likely..)
-				res.writeHead(200, {'Content-Type': 'application/json'});
-                res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs only! " + err}));
-			}).done(); // if we cannot send a response at all for some reason, just crash the whole server..
+		            res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs only! " + err}));
+				}).done(); // if we cannot send a response at all for some reason, just crash the whole server..
 
-        });
+		    });
+
+		} else {  //try to route the request to one of our webpages
+			var now = new Date();
+  			var html = "<p>Hello World, the time is " + now + ".</p>"; //send a web page that requests required info from a management info agent with JSON RPCs
+ 			res.end(html);
+			//TODO: add webpages: server status; agent network; agent list; agent inspector; ?
+	
+		}
     }).listen(port, host);
 };
 

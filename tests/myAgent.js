@@ -73,7 +73,7 @@ myAgent.initOnce = function(params) {  //use this function to start activity; it
 	var value = livingNow ? 1 : 0;
 	var RPCobject = {};
 	for (var i = 0; i < neighbours.length; i++) {
-		RPCobject[i] = {'destination':'http://127.0.0.1:1337/myAgent.js/' + neighbours[i].toString(), 
+		RPCobject[i] = {'destination':'http://127.0.0.1:1337/agents/tests/myAgent.js/' + neighbours[i].toString(), 
 								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
 	}
 
@@ -132,7 +132,7 @@ myAgent.checkAllValues = function(params) {
 	var value = livingNow ? 1 : 0;
 	var RPCobject = {};
 	for (var i = 0; i < neighbours.length; i++) {
-		RPCobject[i] = {'destination':'http://127.0.0.1:1337/myAgent.js/' + neighbours[i].toString(), 
+		RPCobject[i] = {'destination':'http://127.0.0.1:1337/agents/tests/myAgent.js/' + neighbours[i].toString(), 
 								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
 	}
 
@@ -156,7 +156,7 @@ myAgent.myFunction = function(params) {
 	//invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
 	//					data:JSON.stringify({id:3, method:"myFunction", params: {a:1337, b:9}})}}, 500);
 	if (a === 1) {
-		invokeMethod('myAgent.myFunction', {a:1}, {}, {b:{destination:'http://127.0.0.1:1337/tests/myAgent.js/1', 
+		invokeMethod('myAgent.myFunction', {a:1}, {}, {b:{destination:'http://127.0.0.1:1337/agents/tests/myAgent.js/1', 
 						data:{id:3, method:'myFunction', params: {a:1337, b:result}}}}, 500);
 		console.log("sent invokeMethod message");
 	}

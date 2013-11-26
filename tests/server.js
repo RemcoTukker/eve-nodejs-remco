@@ -44,7 +44,7 @@ console.log('Eve running at http://' + HOST + ':' + PORT + '/');
 
 //// initiating some activity 
 setTimeout(function() {
-	request({uri:'http://'+ HOST + ':' + PORT + '/tests/myAgent.js/1', method: "POST", json:{id:3, method:'myFunction', params:{a:1, b:3}} },
+	request({uri:'http://'+ HOST + ':' + PORT + '/agents/tests/myAgent.js/1', method: "POST", json:{id:3, method:'myFunction', params:{a:1, b:3}} },
 	function(err, res, body) {
 		console.log("response to initiating request: " + JSON.stringify(err) + " " + JSON.stringify(body));
 	});
