@@ -161,6 +161,8 @@ myAgent.myFunction = function(params) {
 		console.log("sent invokeMethod message");
 	}
 	
+	//if (c > 1000000) throw new Error("Number too large");
+
 	console.log("myfunction called with " + a + " " + b + " and will now return " + Number(a + b + c));
 	return a + b + c;
 }

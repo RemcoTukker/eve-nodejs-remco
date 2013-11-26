@@ -6,6 +6,8 @@ invokeMethod = function(methodName, params, stateKeys, RPCs, time) {
 	//console.log("sending invokeMethod event");
 	//console.log('invoking Method: ' + time + " " + methodName + " " + JSON.stringify(params) + " "  + JSON.stringify(RPCs) + " " + JSON.stringify(stateKeys));
 	//parse this nicely in the events that the main thread is listening for
+
+	//TODO: check if the urls in the RPCs are valid (can be parsed by url), otherwise eve comes crashing down
 	thread.emit('invokeMethod', time, methodName, JSON.stringify(params), JSON.stringify(stateKeys), JSON.stringify(RPCs));
 }
 
@@ -22,7 +24,8 @@ entryPoint = function(req) {
 	try {
 		var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
 	} catch (e) {
-		console.log("error!" + e.message + " " + e.stack);
+		console.log("error! " + e.message + " " + e.stack);
+		//throw new Error("error! " + e.message);
 		var result = null;
 	}
 	
@@ -41,7 +44,7 @@ invokeCallback = function(methodName, params, state, RPCresults) {
 	}
 	console.log("RPCresults: " + JSON.stringify(RPCresults));
 	for (var key in RPCresults) {
-		if (RPCresults[key].state === "fulfilled") { //&& RPCresults[key].value.error === null) { //TODO: fix this again
+		if (RPCresults[key].state === "fulfilled") { //&& RPCresults[key].value.error === null) { //TODO: fix this again?
 			params[key] = RPCresults[key].value; 
 		} else {
 			params[key] = undefined; //TODO: do we need more intelligent stuff?
