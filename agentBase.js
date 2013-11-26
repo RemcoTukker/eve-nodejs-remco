@@ -20,17 +20,20 @@ store = function(key, value) {
 // TODO: once we have better error information in the main thread, get rid of the try statements
 entryPoint = function(req) {
 	
-	//check if the method exists from agent.getMethods? 
+	//check if the method exists from agent.getMethods?
+	var result = null;
+	var err = null;
+ 
 	try {
 		var result = myAgent[req.method](req.params); //perfect / safe? except that we dont know the name of the agent yet...
 	} catch (e) {
 		console.log("error! " + e.message + " " + e.stack);
 		//throw new Error("error! " + e.message);
-		var result = null;
+		var err = e.message;
 	}
 	
 	//TODO: check type of result and so on; result = null in case of a void function.. etc...		
-	return result;   ///return value is used to send the response to the JSON RPC call
+	return JSON.stringify({'result':result, 'id':req.id, 'error':err });   ///return value is used to send the response to the JSON RPC call
 
 }
 
@@ -44,11 +47,11 @@ invokeCallback = function(methodName, params, state, RPCresults) {
 	}
 	console.log("RPCresults: " + JSON.stringify(RPCresults));
 	for (var key in RPCresults) {
-		if (RPCresults[key].state === "fulfilled") { //&& RPCresults[key].value.error === null) { //TODO: fix this again?
-			params[key] = RPCresults[key].value; 
-		} else {
-			params[key] = undefined; //TODO: do we need more intelligent stuff?
-		}
+		//if (RPCresults.error == null) {
+			params[key] = RPCresults[key].result; 
+		//} else {
+		//	params[key] = undefined; //TODO: do we need more intelligent stuff in case of an error?
+		//}
 		console.log("RPC: " + key + " " + params[key]);
 	}
 

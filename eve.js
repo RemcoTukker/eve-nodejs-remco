@@ -2,13 +2,14 @@
 TODO:
 
 bugfixes:
+Add typechecking everywhere where that could go wrong
 
 regressions:
 ID in the JSON RPC reply, fix those properly
 in case promise is rejected in RPC call, move reason to error field of JSON RPC reply (in case of local calls); dont bother agent with promises
 
 functionality:
-get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that
+get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that (see below)
 its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check if this is done already or not) 
 do parameter parsing in the threads to make agent programmers life easier
 add extra event listeners to give the thread-side of the agent more of the node functionalities, 
@@ -18,9 +19,8 @@ implement some locking mechanisms
 Add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
 					(eg due to downtime, or due to slow RPC requests, or whatever...)
 Also, have a setting that the RPCs / state collection should only start right before an invocation instead of immediately
-			(perhaps with a default 100 ms before callback)
+					(perhaps with a default 100 ms before callback)
 Also, make schedule persistent
-small suite of test agents (see below)
 introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
 make node serve some webpages with status information
 server-wide notifications / starting / stopping
@@ -30,7 +30,6 @@ style:
 be more consistent in where to apply stringify / parsing, to make it more transparent
 let somebody look at this code that knows JS better...
 rework persistent storage, its ugly now, 'cause it needs to know the url
-make a nice package out of it
 
 optimization:
 make seperate event callbacks for the schedule and invoke events to minimize the number of checks and operations per event message
@@ -45,7 +44,7 @@ when agent is removed, what happens with already scheduled callbacks?
 */
 
 
-	//TODO  !!!!! we need stack traces from dying agents!!!! best solution: hack this into TAGG. 
+	//TODO  !!!!! First and foremost, we need stack traces from dying agents!!!! best solution: hack this into TAGG. 
 	//                 -1st alternative: add a debug option which lets you evaluate the agent in the main thread
  	//                  eg in a separate node instance from the rest of the agents, or in a child process of node,
 	//					or within a try block (child process is probably best, try block kills main thread in case of infinite loop)
@@ -54,31 +53,6 @@ when agent is removed, what happens with already scheduled callbacks?
 	// 			NOTE: runtime errors are already reported back now, although they are less helpful than complete stack traces
 	//					(basically what you get when you catch an error) 
 	
-
-/*
-TODO: Test suite:
-
-Adding agent:
-Add a proper agent
-Try to add an agent from a non-existent file
-Try to add an agent that contains errors
-
-Answering requests:
-Proper request
-Malformed requests (non parseable JSON RPC, no return ID)
-Request from nonexistent agent
-Request from agent that doesnt answer atm
-Request from method that doenst exist on agent
-Request from method with wrong parameters
-Request resulting in runtime error at agent
-
-Agent functionality:
-...
-
-*/
-
-
-
 var http = require('http'),
     url = require('url'),
 	request = require('request'),
@@ -148,7 +122,6 @@ eve.Agent = function(filename, uri, threads) {
 
 	//Q stuff to be used later on, make promise-returning functions out of NodeJS functions with callback
 	var evalAny = Q.nbind(pool.any.eval, pool);
-	var httpRequestPromise = Q.denodeify(request);
 	
 	// ******* functions for getting the thread to work for us, entry point of JSON RPCs in the agent **********
 	this.requestPromise = function(request) {
@@ -177,12 +150,11 @@ eve.Agent = function(filename, uri, threads) {
 	// event listener for invoking other agent methods ("callback over threads")
 	pool.on("invokeMethod", function(time, functionName, strParams, strStateKeys, strRPCs) {
 		//recall all state that the new function call requires and add the recalled state to the params object
+		//console.log("got invokeMethod event");	
+		//console.log(time + " " + functionName + " " + strParams + " " + strStateKeys + " " + strRPCs);
 		
 		stateKeys = JSON.parse(strStateKeys); //we assembled those things, so we can hopefully assume they get parsed without errors
 		RPCs = JSON.parse(strRPCs);
-
-		//console.log("got invokeMethod event");	
-		//console.log(time + " " + functionName + " " + strParams + " " + strStateKeys + " " + strRPCs);
 
 		//convert timeout to date
 		var executionDate = new Date(); 
@@ -190,49 +162,24 @@ eve.Agent = function(filename, uri, threads) {
 
 		//build a promise array
 		var promiseArray = [];
-
 		for (key in RPCs) {
-			//TODO: make sure that we have a valid url in agentBase! Otherwise this comes down crashing
-			var dest = url.parse(RPCs[key].destination);
 			RPCs[key].arrayNumber = promiseArray.length;
-
-			//if ( ((dest.hostname == "localhost") || (dest.hostname == eve.location.host) ) && (dest.port == eve.location.port) ) {
-			if (false) {			
-				//console.log("local call "); // to " + dest.pathname + " " + JSON.stringify(RPCs[key].data));  //we have a local request
-				RPCs[key].type = "local";
-				promiseArray.push(eve.handleRequestPromise({'uri': dest.pathname, 'json': JSON.stringify(RPCs[key].data)}));
-			} else {
-				//console.log("http call");				//we have a http request
-				RPCs[key].type = "remote";				
-				promiseArray.push(httpRequestPromise({uri: RPCs[key].destination, method: "POST", json: RPCs[key].data }));
-			}
+			promiseArray.push(eve.requestPromise(RPCs[key]));
 		}
 
-		Q.delay(executionDate - Date.now()).then(function() { 
+		Q.delay(executionDate - Date.now()).then(function() { //TODO: add some flexibility in timing
 			Q.allSettled(promiseArray).then( function(RPCarray) {  
+				//console.log(JSON.stringify(RPCarray));
 
 				if (functionName == "") return; //TODO: fix this in a nicer way
 
-				console.log(JSON.stringify(RPCarray));
-
-				var RPCresults = {}; //object to send back; only copy actual results in there (we get back a lot more from http request)			
-				//TODO: add error information that is missing now.. //TODO: in case of rejected, we should copy the error, not the value..
+				var RPCresults = {}; //copy over RPC results
 				for (key in RPCs) {
 					var arrayNr = RPCs[key].arrayNumber;
-					RPCresults[key] = {};
-					RPCresults[key].state = RPCarray[arrayNr].state;  
-					if (RPCresults[key].state === "fulfilled") {					
-						if (RPCs[key].type === "remote") {
-							RPCresults[key].value = RPCarray[arrayNr].value[1];
-						} else {  // RPCs[key].type === "local"
-							RPCresults[key].value = JSON.parse(RPCarray[arrayNr].value); 
-						}
-					} else {
-						RPCresults[key].reason = RPCarray[arrayNr].reason;
-					}
+					RPCresults[key] = RPCarray[arrayNr].value;
 				}
 
-				var state = {};
+				var state = {};  //copy over state recall results
 				for (key in stateKeys) {
 					state[key] = agentData.recall(stateKeys[key]); 
 				}
@@ -319,8 +266,8 @@ eve.agentList = {};
 eve.add = function(filename, options) {
 //function add(filename, options) {
 
-	//TODO: check that options.uri and options.threads are of the right type and check that options even exists 
-	var options = new Object(); //TODO see how to do this properly
+	// TODO: check that options.uri and options.threads are of the right type and check that options even exists 
+	var options = new Object(); // TODO see how to do this properly
 
 	if (options.threads === undefined) options.threads = 2;  //default value for threads
 	
@@ -345,8 +292,7 @@ eve.add = function(filename, options) {
 	return options.uri;
 }
 
-//function remove(uri, timeout) { //timeout is for finishing existing threads
-eve.remove = function(uri, timeout) {
+eve.remove = function(uri, timeout) { //timeout is for finishing existing threads
 	if (uri in eve.agentList) {
 		eve.agentList[uri].blockRequests(); 
 		//TODO: check type of timeout		
@@ -377,11 +323,44 @@ eve.handleRequestPromise = function (params) {
 
 }
 
+//wrap local RPCs and http RPCs in a nice wrapper that always returns JSON RPC reply 
+eve.requestPromise = function(RPC) {
+
+	//TODO: make sure that we have a valid url in agentBase (or here)! Otherwise this comes down crashing
+	var dest = url.parse(RPC.destination);
+	
+	//first find out whether we have a local request or a http request:
+	if ( ((dest.hostname == "localhost") || (dest.hostname == eve.location.host) ) && (dest.port == eve.location.port) ) {
+		//console.log("local call "); // to " + dest.pathname + " " + JSON.stringify(RPCs[key].data));  //we have a local request
+
+		return eve.handleRequestPromise({'uri': dest.pathname, 'json': JSON.stringify(RPCs[key].data)})
+		.then(function(val) {
+			return JSON.parse(val);
+		}, function(err) {
+			//TODO: add a check on id and give extra complaint in case its undefined
+			return {id: RPC.data.id, result: null, error: err }; //do we need a toString or something?
+		});
+
+	} else {
+		//console.log("http call");				//we have a http request
+		var httpRequestPromise = Q.denodeify(request);
+	
+		return httpRequestPromise({uri: RPC.destination, method: "POST", json: RPC.data })
+		.then(function(val) {
+			return val[1]; //this should be the JSON RPC reply
+		}, function(err) {
+			//TODO: add a check on id and give extra complaint in case its undefined   //if (RPC.json.id === undefined) or typeof or something..
+			return {id: RPC.data.id, result: null, error: err }; //do we need a toString or something?
+		});
+	}
+}
+
 /**
  * Start a server handling the HTTP requests
  * @param {Number} port
  * @param {String} host
  */
+
 eve.listen = function (port, host) {
     eve.location.href = "http://" + host + ":" + port, eve.location.port = port, eve.location.host = host;
 
@@ -418,26 +397,10 @@ eve.listen = function (port, host) {
 };
 
 
-//// test lines here 
-
-
-Q.delay(1000)
-.then(function(value) { 
-	eve.handleRequestPromise({'uri':'/myAgent.js/1', 'json':JSON.stringify({id:3, method:'myFunction', params:{a:1, b:3}})  })
-	.then(function (value) {
-		console.log(value);	
-	}, function(err) {
-		console.log(err);
-	}).done();
-})
-.done();
-
-
-setTimeout(function() {return eve.remove("/myAgent.js/1"); }, 2000);
-
 /**
  * nodejs exports
  */
 exports.listen = eve.listen;
 exports.add = eve.add;
+
 

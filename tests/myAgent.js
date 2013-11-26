@@ -23,7 +23,7 @@ The filename should be the same as the name of the object that is your agent (mi
 	name (as long as you keep the agent files in the same folder) and makes the agent code portable (prevents naming conflicts)
 
 TODO:
-Only the functions described in the getMethod function are guaranteed to be available to the outside world 
+Only the functions described in the getMethod function are guaranteed to be available to the outside world (even better, at all reachable from outside)
 Have a transparent way of returning errors vs data to the JSON RPC request
 
 Do we need a special constructor in which we can send initializing messages or can we just do that anywhere? 
@@ -156,7 +156,7 @@ myAgent.myFunction = function(params) {
 	//invokeMethod("myAgent.myFunction", {a:1}, {}, {b:{destination:"http://localhost:1337/myAgent.js/1", 
 	//					data:JSON.stringify({id:3, method:"myFunction", params: {a:1337, b:9}})}}, 500);
 	if (a === 1) {
-		invokeMethod('myAgent.myFunction', {a:1}, {}, {b:{destination:'http://127.0.0.1:1337/myAgent.js/1', 
+		invokeMethod('myAgent.myFunction', {a:1}, {}, {b:{destination:'http://127.0.0.1:1337/tests/myAgent.js/1', 
 						data:{id:3, method:'myFunction', params: {a:1337, b:result}}}}, 500);
 		console.log("sent invokeMethod message");
 	}
