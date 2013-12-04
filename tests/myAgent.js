@@ -48,6 +48,7 @@ Chosen now: send neighbours as soon as you know
 
 */
 
+
 myAgent.initAll = function(params) {   ///use this function to store information in this thread; in general, use only for static stuff!
 
 	var n = params.n;
@@ -63,7 +64,7 @@ myAgent.initAll = function(params) {   ///use this function to store information
 
 }
 
-myAgent.initOnce = function(params) {  //use this function to start activity; its called once per agent after initialization
+myAgent.initOnce = function() {  //use this function to start activity; its called once per agent after initialization
 
 	var livingNow = (Math.random() < .5);
 	var timeStep = 0;
@@ -74,10 +75,10 @@ myAgent.initOnce = function(params) {  //use this function to start activity; it
 	var RPCobject = {};
 	for (var i = 0; i < neighbours.length; i++) {
 		RPCobject[i] = {'destination':'http://127.0.0.1:1337/agents/tests/myAgent.js/' + neighbours[i].toString(), 
-								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':currentTimeStep, 'value':value}}};
+								'data':{'id':0, 'method':'collectResults','params':{'origin':myNumber, 'timeStep':timeStep, 'value':value}}};
 	}
 
-	invokeMethod('checkIfMessageArrived', {}, {}, RPCobject, 0);
+	invokeMethod('checkIfMessageArrived', {}, {}, RPCobject, 5000); //wait 5 seconds for initialization of a bunch of agents
 
 }
 
@@ -128,6 +129,10 @@ myAgent.checkAllValues = function(params) {
 	store("timeStep", currentTimeStep);
 	store("living", livingNow);
 	
+	if (currentTimeStep > 10) {
+		console.log("end");
+	 	return;
+	}
 
 	var value = livingNow ? 1 : 0;
 	var RPCobject = {};

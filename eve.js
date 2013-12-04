@@ -3,7 +3,7 @@ TODO:
 
 functionality:
 Developing agent system: get the line number / stack trace out of the threads to facilitate debugging (see below), do parameter parsing in the threads to make agent programmers life easier
-	publish subscribe, init functions in agent
+	publish subscribe, init functions in agent, add init parameters that are passed to the agent on construction
 General: extra event listeners to give the thread-side of the agent more of the node functionalities (http requests, starting external processes, ...), finish management agent
 Scheduling: Add some flexibility (time windows, relative timing RPCs and callback), add persistency
 Stability: introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
@@ -113,15 +113,16 @@ eve.DataStore = function(uri) {
 }
 
 //object representing main-thread side of agent 
-eve.Agent = function(filename, uri, threads) {
+eve.Agent = function(filename, uri, threads, initState, initStatics) {
 	//constructor
 	var agentData = new eve.DataStore(uri);
 	var acceptingRequests = false;
 	
 	//save the init parameter for some introspection
-	agentData.save("uri", uri); 
+	agentData.save("uri", uri);
 	agentData.save("threads", threads); //is this actually relevant? doesnt it change all the time?
 	agentData.save("filename", filename);
+	//TODO: save the initState
 
 	//have a thread pool for every agent (because threads-a-gogo requires file to be loaded beforehand; 
 	// loading code into threads on the fly is likely not very performant)
@@ -158,24 +159,25 @@ eve.Agent = function(filename, uri, threads) {
 		//console.log("got invokeMethod event");	
 		//console.log(time + " " + functionName + " " + strParams + " " + strStateKeys + " " + strRPCs);
 		
-		stateKeys = JSON.parse(strStateKeys); //we assembled those things, so we can hopefully assume they get parsed without errors
-		RPCs = JSON.parse(strRPCs);
+		var stateKeys = JSON.parse(strStateKeys); //we assembled those things, so we can hopefully assume they get parsed without errors
+		var RPCs = JSON.parse(strRPCs);
 
 		//convert timeout to date
 		var executionDate = new Date(); 
 		executionDate.setMilliseconds(executionDate.getMilliseconds() + Number(time));
 
-		//build a promise array
-		var promiseArray = [];
-		for (key in RPCs) {
-			RPCs[key].arrayNumber = promiseArray.length;
-			promiseArray.push(eve.requestSendPromise(RPCs[key]));
-		}
+		
 
 		Q.delay(executionDate - Date.now()).then(function() { //TODO: add some flexibility in timing
+			//build a promise array
+			var promiseArray = [];
+			for (key in RPCs) {
+				RPCs[key].arrayNumber = promiseArray.length;
+				promiseArray.push(eve.requestSendPromise(RPCs[key]));
+			}		
+	
 			Q.allSettled(promiseArray).then( function(RPCarray) {  
-				//console.log(JSON.stringify(RPCarray));
-
+				
 				if (functionName == "") return; //TODO: fix this in a nicer way
 
 				var RPCresults = {}; //copy over RPC results
@@ -244,21 +246,47 @@ eve.Agent = function(filename, uri, threads) {
 
 	//Finally, load the agent code
 	var nrLoaded = 0;
-
-	pool.load(__dirname + "/" + filename, function(err, completionValue) {
+	var loadError = false;
+	pool.load(__dirname + "/" + filename, function(err, completionValue) {  //cannot really use Q here, 'cause this callback is called multiple times... welcome pyramid of doom
+																			// (maybe we should make our own threadpool implementation to fix this and perhaps some other stuff too)
 		nrLoaded++;		
-		if (nrLoaded == 1) {
-			if (err != null) {
-				console.log("Error: " + __dirname + "/" + filename + " could not be loaded; error: " + err.message + " " + err.stack);				
-				var uri = agentData.recall("uri");
-				process.nextTick( function() { return remove(uri); }, 1000); 					
-			} else {
-				console.log("agentBase.js loaded succesfully!");
-				acceptingRequests = true;
-			}
-		} else if (nrLoaded == threads) {
-			//pool.all.eval();  //TODO initializer function, give the a priori information (and possibly construction arguments?)
-			// add callback function that will do the "once" init parts
+		if ((err != null) && (loadError == false)) {
+			console.log("Error during loading of: " + __dirname + "/" + filename + "; error: " + err.message + " " + err.stack);
+			process.nextTick( function() { return eve.agentList["/agents/management"].removeAgent(uri); }, 1000); 					
+			loadError = true;
+		}
+
+		if ((nrLoaded == threads) && (loadError == false)) {
+			//console.log("agentBase.js loaded succesfully!");
+			
+			// proceed to initAll
+			var nrInit = 0;
+
+			pool.all.eval("initAll(" + JSON.stringify(initStatics) + ")", function(err, value) {  //TODO stringify can fail
+				nrInit++;
+				if ((err != null) && (loadError == false)) {
+					console.log("Error during initAll of: /" + filename + "; error: " + err.message + " " + err.stack);
+					process.nextTick( function() { return eve.agentList["/agents/management"].removeAgent(uri); }, 1000); 					
+					loadError = true;
+				}
+
+				if ((nrInit == threads) && (loadError == false)) {
+					//console.log("InitAll succeeded");
+
+					// then open up for requests
+					acceptingRequests = true;
+
+					// then do the init once function
+					pool.any.eval("initOnce()", function(err, value) {
+						if (err != null) {
+							console.log("Error during initOnce of: /" + filename + "; error: " + err.message + " " + err.stack);
+							process.nextTick( function() { return eve.agentList["/agents/management"].removeAgent(uri); }, 1000);
+						} else {
+							//console.log("Initialization sequence completed by agent: /" + filename );
+						}
+					});
+				}
+			});
 		}
 	});
 
@@ -328,7 +356,7 @@ eve.agentList["/agents/management"] = {
 
 	addAgent: function(filename, options) {
 		// TODO: check that options.uri and options.threads are of the right type and check that options even exists 
-		var options = new Object(); // TODO see how to do this properly
+		if (options === undefined) var options = new Object(); // TODO see how to do this properly
 
 		if (options.threads === undefined) options.threads = 2;  //default value for threads
 	
@@ -345,9 +373,9 @@ eve.agentList["/agents/management"] = {
 			options.uri = proposedUri;
 		}
 	
-		eve.agentList[options.uri] = new eve.Agent(filename, options.uri, options.threads);
+		eve.agentList[options.uri] = new eve.Agent(filename, options.uri, options.threads, options.initState, options.initStatics);
 	
-		console.log("Added agent from " + filename + " at " + options.uri + " with " + options.threads + " threads."); 
+		//console.log("Added agent from " + filename + " at " + options.uri + " with " + options.threads + " threads."); 
 		return options.uri;
 	},
 
@@ -420,7 +448,7 @@ eve.requestSendPromise = function(RPC) {
 	}
 }
 
-//to handle requests that are coming in from outside
+//to handle requests that are coming in from outside (this is what you'ld call from express)
 eve.incomingRequest = function(req, res) {  //req.body should contain the parsed JSON RPC message, req.url the uri as used in the agentname, eg, /agents/agenttype/nr
 
 	var params = {'json': JSON.stringify(req.body), 'uri':req.url};
@@ -482,4 +510,5 @@ eve.listen = function (port, host) {
 
 exports.listen = eve.listen;
 exports.management = eve.agentList["/agents/management"];
+exports.handleRequest = eve.incomingRequest;
 

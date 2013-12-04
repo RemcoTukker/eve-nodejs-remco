@@ -36,13 +36,16 @@ var eve                   = require('../eve.js');
     UserAgent             = require('./agent/UserAgent.js');
 */
 
-eve.management.addAgent("tests/myAgent.js");
+for (var i = 0; i < 200; i++) { //400 gives "too many open files" ....
+	eve.management.addAgent("tests/myAgent.js", {'initStatics':{'n':i}});
+}
 
 // start the eve server
 eve.listen(PORT, HOST);
 console.log('Eve running at http://' + HOST + ':' + PORT + '/');
 
 //// initiating some activity 
+/*
 setTimeout(function() {
 	request({uri:'http://'+ HOST + ':' + PORT + '/agents/tests/myAgent.js/1', method: "POST", json:{id:3, method:'myFunction', params:{a:1, b:3}} },
 	function(err, res, body) {
@@ -51,6 +54,7 @@ setTimeout(function() {
 	console.log("request sent");
 
 }, 1000);
+*/
 
 //setTimeout(function() {return eve.remove("/myAgent.js/1"); }, 2000);
 

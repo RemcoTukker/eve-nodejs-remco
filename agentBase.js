@@ -45,14 +45,14 @@ invokeCallback = function(methodName, params, state, RPCresults) {
 	for (var key in state) {
 		params[key] = state[key]; 
 	}
-	console.log("RPCresults: " + JSON.stringify(RPCresults));
+	//console.log("RPCresults: " + JSON.stringify(RPCresults));
 	for (var key in RPCresults) {
 		//if (RPCresults.error == null) {
 			params[key] = RPCresults[key].result; 
 		//} else {
 		//	params[key] = undefined; //TODO: do we need more intelligent stuff in case of an error?
 		//}
-		console.log("RPC: " + key + " " + params[key]);
+		//console.log("RPC: " + key + " " + params[key]);
 	}
 
 	//remove the myAgent. from beginning of method name, if it is there
@@ -70,8 +70,23 @@ invokeCallback = function(methodName, params, state, RPCresults) {
 	return result; 
 } 
 
+initAll = function(data) {
+	myAgent.initAll(data);
+}
+
+initOnce = function() {
+	myAgent.initOnce();
+}
 
 var agentBase = {};
+
+agentBase.initAll = function(params) {
+	console.log("agentBase initAll function executed");
+}
+
+agentBase.initOnce = function() {
+	console.log("agentBase initOnce function executed");
+}
 
 // TODO: add standard getMethods, getId, and getUrls functions
 // TODO: help users with taking care of these
