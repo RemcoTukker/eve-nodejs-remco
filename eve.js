@@ -1,35 +1,21 @@
 /*
 TODO:
 
-bugfixes:
-Add typechecking everywhere where that could go wrong
-
-regressions:
-
 functionality:
-get the line number / stack trace out of the threads to facilitate debugging, go into TAGG for that (see below)
-its probably best to restart the thread after an uncaught error to prevent mem leaks etc (check if this is done already or not) 
-do parameter parsing in the threads to make agent programmers life easier
-add extra event listeners to give the thread-side of the agent more of the node functionalities, 
-	eg http requests (as this is possible from webworkers too I think?), running external scripts may be useful for AIM, .....
-implement some locking mechanisms
-Add some flexibility in the scheduling: invoke as soon as possible after scheduled time, or only invoke within a certain time window 
-					(eg due to downtime, or due to slow RPC requests, or whatever...)
-Also, have a setting that the RPCs / state collection should only start right before an invocation instead of immediately
-					(perhaps with a default 100 ms before callback)
-Also, make schedule persistent
-introduce an onerror for uncaught exceptions, to ensure integrity of files for persistent storage
-* make node serve some webpages with status information
-* server-wide notifications / starting / stopping
-* publish subscribe 
-agent management functions node-side
+Developing agent system: get the line number / stack trace out of the threads to facilitate debugging (see below), do parameter parsing in the threads to make agent programmers life easier
+	publish subscribe, init functions in agent
+General: extra event listeners to give the thread-side of the agent more of the node functionalities (http requests, starting external processes, ...), finish management agent
+Scheduling: Add some flexibility (time windows, relative timing RPCs and callback), add persistency
+Stability: introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 
 style:
 prettier comments and function descriptions
 let somebody look at this code that knows JS better...
 rework persistent storage, its ugly now, 'cause it needs to know the url
+parse / stringify consistently
 
 optimization:
+only parse / stringify when necessary
 make seperate event callbacks for the schedule and invoke events to minimize the number of checks and operations per event message
 move stuff down to c++ ? (Peet?)
 improve data store, perhaps a db?
@@ -38,6 +24,18 @@ move Agent (and perhaps also dataStore) functions to a prototype to reduce memor
 
 stuff to check:
 when agent is removed, what happens with already scheduled callbacks?
+perhaps give users a choice to do remote management over JSON RPC, or default it to off
+threads are restarted after uncaught errors? Should be done to prevent mem leaks and so on..
+how do threadpools behave on destruction? Do we even need to destroy them explicitly?
+is the platform still reasonably safe?
+
+related work:
+eve frontend to use eve in an express server and couple UIs to agents (think about security here at some point)
+build browser-side agent environment
+
+finally:
+evaluate threading model, maybe we want to change it to single threaded agents..
+see if we want to add some sort of authentication model
 
 */
 
@@ -50,7 +48,14 @@ when agent is removed, what happens with already scheduled callbacks?
 	//					(in this function). Runtime errors will still be in the dark
 	// 			NOTE: runtime errors are already reported back now, although they are less helpful than complete stack traces
 	//					(basically what you get when you catch an error) 
-	
+
+
+/**
+ *
+ * Initialization
+ *
+ */
+
 var http = require('http'),
     url = require('url'),
 	request = require('request'),
@@ -58,15 +63,19 @@ var http = require('http'),
 	storage = require('node-persist'), 
 	Threads = require('webworker-threads'); //webworker threads is better than TAGG ´cause this one lets you do importScripts
 
-//for debugging:
-//Q.longStackSupport = true;
+var eve = {};  // initialize namespace 
+eve.location = {href: undefined, host: undefined, port: undefined} //will contain server location like "http://host:port"
+eve.agentList = {}; //this object will hold all agents
 
-var eve = {
-	location: {href: undefined, host: undefined, port: undefined}   // will contain server location like "http://host:port"
-};
+storage.initSync(); //we have to do this for the persistent storage library
 
-//we have to do this for the persistent storage library
-storage.initSync();
+//Q.longStackSupport = true; //for debugging:
+
+/**
+ *
+ * functions for agents
+ *
+ */
 
 //dataStore object that becomes part of the main-thread-side of the agent
 eve.DataStore = function(uri) {
@@ -122,18 +131,16 @@ eve.Agent = function(filename, uri, threads) {
 	var evalAny = Q.nbind(pool.any.eval, pool);
 	
 	// ******* functions for getting the thread to work for us, entry point of JSON RPCs in the agent **********
-	this.requestPromise = function(request) {
+	this.requestDeliveryPromise = function(request) {
 		if (!acceptingRequests) {
 			console.log("test:");
 			return Q.reject("Agent does not accept requests at the moment");
 		}
-		
+
 		return evalAny("entryPoint(" + request + ")")
 		.fail(function(err) {
-			console.log("in agent " + uri);
-			console.log("function returned with err " + err + " and value " + completionValue);
-			console.log("in reply to the following request: " + request);
-			console.log("stack trace: " + err.stack);
+			console.log("Error! In agent " + uri + ", function returned with err " + err + " and value " + completionValue);
+			console.log("in reply to the following request: " + request + "; stack trace: " + err.stack);
 			return Q.reject("Agent had an internal error: " + err.message);
 		});
 	}
@@ -162,7 +169,7 @@ eve.Agent = function(filename, uri, threads) {
 		var promiseArray = [];
 		for (key in RPCs) {
 			RPCs[key].arrayNumber = promiseArray.length;
-			promiseArray.push(eve.requestPromise(RPCs[key]));
+			promiseArray.push(eve.requestSendPromise(RPCs[key]));
 		}
 
 		Q.delay(executionDate - Date.now()).then(function() { //TODO: add some flexibility in timing
@@ -194,7 +201,7 @@ eve.Agent = function(filename, uri, threads) {
 
 	});
 
-	/* management functions */
+	/* agent management functions */
 
 	this.stop = function() {
 		//console.log("rude" + pool.totalThreads());
@@ -250,92 +257,139 @@ eve.Agent = function(filename, uri, threads) {
 				acceptingRequests = true;
 			}
 		} else if (nrLoaded == threads) {
-			//pool.all.eval();  //initializer function, give the a priori information (and possibly construction arguments?)
+			//pool.all.eval();  //TODO initializer function, give the a priori information (and possibly construction arguments?)
 			// add callback function that will do the "once" init parts
 		}
 	});
 
 }
 
-eve.managementAgent = function() {
-	//
-	this.requestPromise = function(request) {  //should this function be async to line up with normal agents function?
+/**
+ *
+ * Server management functions, wrapped in an agent for remote management
+ *
+ */
+
+eve.agentList["/agents/management"] = {
+	requestDeliveryPromise: function(request) {  //should this function be async to line up with normal agents function?
 		//parse request
 
 		//do useful stuff, such as sending back stuff
-
-		//should be able to answer following requests: start, pause and stop agents, list agents, messages sent in a time window, server status info, agents details
-
-	}
-
-
-
-}
-
-
-/* functions for keeping track of all the instantiated agents */
-
-eve.agentList = {};
-
-eve.add = function(filename, options) {
-
-	// TODO: check that options.uri and options.threads are of the right type and check that options even exists 
-	var options = new Object(); // TODO see how to do this properly
-
-	if (options.threads === undefined) options.threads = 2;  //default value for threads
 	
-	// see whether we need to assign a uri automatically
-	if (options.uri === undefined || (options.uri in eve.agentList)) {
+		//return a promise
+		
+	},
 
-		var number = 1;
-		var proposedUri = "/agents/" + filename + "/" + number; //maybe not ideal to use filename here... 
-		while (proposedUri in eve.agentList) {
-			number++;
-			proposedUri = "/agents/" + filename + "/" + number;
+	//TODO: see how to handle building a network and do the pretty moving package view in the browser
+	//TODO: see if we want to give agent details from here or from the agent itself
+
+	removeAll: function() {
+		for (agent in eve.agentList) {
+			//agent.
 		}
 		
-		options.uri = proposedUri;
+	},
+
+	pauseAll: function() {
+		for (agent in eve.agentList) {
+			agent.blockRequests();
+		}
+	},
+
+	resumeAll: function() {
+		for (agent in eve.agentList) {
+			agent.resumeRequests();
+		}
+	},
+
+	notifyAll: function() {
+		//TODO: see how actually to do this; make a stub in in AgentBase?
+	},
+
+	serverStatus: function() {
+
+	},
+
+	listAgents: function() {
+
+	},
+
+	pauseAgent: function(uri) {
+
+	},
+
+	resumeAgent: function(uri) {
+
+	},
+
+	setAddress: function (port, host) {
+		eve.location.href = "http://" + host + ":" + port, eve.location.port = port, eve.location.host = host;
+	},
+
+	addAgent: function(filename, options) {
+		// TODO: check that options.uri and options.threads are of the right type and check that options even exists 
+		var options = new Object(); // TODO see how to do this properly
+
+		if (options.threads === undefined) options.threads = 2;  //default value for threads
+	
+		// see whether we need to assign a uri automatically
+		if (options.uri === undefined || (options.uri in eve.agentList)) {
+
+			var number = 1;
+			var proposedUri = "/agents/" + filename + "/" + number; //maybe not ideal to use filename here... 
+			while (proposedUri in eve.agentList) {
+				number++;
+				proposedUri = "/agents/" + filename + "/" + number;
+			}
+		
+			options.uri = proposedUri;
+		}
+	
+		eve.agentList[options.uri] = new eve.Agent(filename, options.uri, options.threads);
+	
+		console.log("Added agent from " + filename + " at " + options.uri + " with " + options.threads + " threads."); 
+		return options.uri;
+	},
+
+	removeAgent: function(uri, timeout) {
+		if (uri in eve.agentList) {
+			eve.agentList[uri].blockRequests(); 
+			//TODO: check type of timeout		
+			if (timeout === undefined) timeout = 1000;
+			setTimeout(function(){ 
+				eve.agentList[uri].stop(); 
+				delete eve.agentList[uri]; 
+				console.log("Removed agent " + uri); 
+			}, timeout); 
+			console.log("Agent " + uri + " will be removed after " + timeout + " ms.");
+		} else {
+			console.log("Warning: agent " + uri + " couldnt be removed; doesnt exist.")
+			//TODO: see if we can safely do this..		
+			//return new Error("Warning: Failed to remove agent at " + uri + "; doesnt exist!");
+		}
 	}
-	
-	eve.agentList[options.uri] = new eve.Agent(filename, options.uri, options.threads);
-	
-	console.log("Added agent from " + filename + " at " + options.uri + " with " + options.threads + " threads."); 
-	return options.uri;
+
 }
 
-eve.remove = function(uri, timeout) { //timeout is for finishing existing threads
-	if (uri in eve.agentList) {
-		eve.agentList[uri].blockRequests(); 
-		//TODO: check type of timeout		
-		if (timeout === undefined) timeout = 1000;
-		setTimeout(function(){ 
-			eve.agentList[uri].stop(); 
-			delete eve.agentList[uri]; 
-			console.log("Removed agent " + uri); 
-		}, timeout); 
-		console.log("Agent " + uri + " will be removed after " + timeout + " ms.");
-	} else {
-		console.log("Warning: agent " + uri + " couldnt be removed; doesnt exist.")
-		//TODO: see if we can safely do this..		
-		//return new Error("Warning: Failed to remove agent at " + uri + "; doesnt exist!");
-	}
+/**
+ *
+ * functions for handling incoming RPC messages 
+ *
+ */
 
-}
-
-/* functions for handling incoming RPC messages */
-
-eve.handleRequestPromise = function (params) { 
+// route a request to the right location
+eve.requestRelayPromise = function (params) { 
 
 	if (params.uri in eve.agentList) {
-		return eve.agentList[params.uri].requestPromise(params.json);
+		return eve.agentList[params.uri].requestDeliveryPromise(params.json);
 	} else {
 		return Q.reject("Agent " + params.uri + " does not exist here at " + eve.location.href + "!");
 	}
 
 }
 
-//wrap local RPCs and http RPCs in a nice wrapper that always returns JSON RPC reply 
-eve.requestPromise = function(RPC) {
+//wrap local RPCs and http RPCs in a nice wrapper that always returns a promise that will resolve in a JSON RPC reply
+eve.requestSendPromise = function(RPC) {
 
 	//TODO: make sure that we have a valid url in agentBase (or here)! Otherwise this comes down crashing
 	var dest = url.parse(RPC.destination);
@@ -344,7 +398,7 @@ eve.requestPromise = function(RPC) {
 	if ( ((dest.hostname == "localhost") || (dest.hostname == eve.location.host) ) && (dest.port == eve.location.port) ) {
 		console.log("local call "); // to " + dest.pathname + " " + JSON.stringify(RPCs[key].data));  //we have a local request
 
-		return eve.handleRequestPromise({'uri': dest.pathname, 'json': JSON.stringify(RPC.data)})
+		return eve.requestRelayPromise({'uri': dest.pathname, 'json': JSON.stringify(RPC.data)})
 		.then(function(val) {
 			return JSON.parse(val);
 		}, function(err) {
@@ -365,6 +419,23 @@ eve.requestPromise = function(RPC) {
 		});
 	}
 }
+
+//to handle requests that are coming in from outside
+eve.incomingRequest = function(req, res) {  //req.body should contain the parsed JSON RPC message, req.url the uri as used in the agentname, eg, /agents/agenttype/nr
+
+	var params = {'json': JSON.stringify(req.body), 'uri':req.url};
+	eve.requestRelayPromise(params)
+	.then( function(value) {
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(value);  
+	}, function(err) {  //assemble the error message based on rejected promise and request
+		res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({id:req.body.id, result:null, error:err}));
+		//TODO perhaps send an additional warning in case 'id' is undefined
+	}).done();
+
+}
+
 
 /**
  * Start a server handling the HTTP requests
@@ -387,34 +458,19 @@ eve.listen = function (port, host) {
 		    req.on("end", function() {
 		        console.log("receiving request: " + req.url + data);
 
-				eve.handleRequestPromise({'uri':pathname, 'json':data}) //TODO: make use of requestPromise? Only we then need to parse and stringify again...
-				.then(function(value) {
-		            res.writeHead(200, {'Content-Type': 'application/json'});
-		            res.end(value);  
-				})
-				.fail(function(err) {  //assemble the error message based on rejected promise and request
-					parsedRPC = JSON.parse(data);
-					if (parsedRPC.id === undefined) {
-						res.writeHead(200, {'Content-Type': 'application/json'});
-		            	res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs (include ID); moreover: " + err}));
-					} else {
-						res.writeHead(200, {'Content-Type': 'application/json'});
-		            	res.end(JSON.stringify({id:parsedRPC.id, result:null, error:err}));
-					}
-				})
-				.fail(function(err) { //special message in case we couldnt parse the message (most likely..)
+				try {
+					var parsedRPC = JSON.parse(data);				
+					eve.incomingRequest({'url':pathname, 'body':parsedRPC}, res);
+				} catch(err) { //probably message couldnt be parsed
 					res.writeHead(200, {'Content-Type': 'application/json'});
-		            res.end(JSON.stringify({id:null, result:null, error:"Please send valid JSON RPCs only! " + err}));
-				}).done(); // if we cannot send a response at all for some reason, just crash the whole server..
-
+		            res.end(JSON.stringify({id:null, result:null, error:"Unkown error, are you sure you sent a valid JSON RPC? " + err}));
+				}
 		    });
 
 		} else {  //try to route the request to one of our webpages
 			var now = new Date();
-  			var html = "<p>Hello World, the time is " + now + ".</p>"; //send a web page that requests required info from a management info agent with JSON RPCs
+  			var html = "<p>Hello World, in case you want more functionality on webpages, simply embed eve in an express server.</p>"; 
  			res.end(html);
-			//TODO: add webpages: server status; agent network; agent list; agent inspector; ?
-	
 		}
     }).listen(port, host);
 };
@@ -423,7 +479,7 @@ eve.listen = function (port, host) {
 /**
  * nodejs exports
  */
-exports.listen = eve.listen;
-exports.add = eve.add;
 
+exports.listen = eve.listen;
+exports.management = eve.agentList["/agents/management"];
 

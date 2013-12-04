@@ -36,7 +36,7 @@ var eve                   = require('../eve.js');
     UserAgent             = require('./agent/UserAgent.js');
 */
 
-eve.add("tests/myAgent.js");
+eve.management.addAgent("tests/myAgent.js");
 
 // start the eve server
 eve.listen(PORT, HOST);
