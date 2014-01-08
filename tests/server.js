@@ -27,7 +27,12 @@ var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
 // imports
-var eve                   = require('../eve.js');
+var Eve                   = require('../eve.js');
+
+//var myEve = new Eve({services: {}});
+var myEve = new Eve({services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {} } });
+
+myEve.addAgents({agent1: {filename: 'simpleAgent', options: {} } });
 
 /*
     CalcAgent             = require('./agent/CalcAgent.js'),
@@ -36,16 +41,18 @@ var eve                   = require('../eve.js');
     UserAgent             = require('./agent/UserAgent.js');
 */
 
+/*
 for (var i = 0; i < 200; i++) { //400 gives "too many open files" ....
 	eve.management.addAgent("tests/myAgent.js", {'initStatics':{'n':i}});
 }
+*/
 
 // start the eve server
-eve.listen(PORT, HOST);
-console.log('Eve running at http://' + HOST + ':' + PORT + '/');
+//eve.listen(PORT, HOST);
+//console.log('Eve running at http://' + HOST + ':' + PORT + '/');
 
 //// initiating some activity 
-/*
+
 setTimeout(function() {
 	request({uri:'http://'+ HOST + ':' + PORT + '/agents/tests/myAgent.js/1', method: "POST", json:{id:3, method:'myFunction', params:{a:1, b:3}} },
 	function(err, res, body) {
@@ -54,7 +61,7 @@ setTimeout(function() {
 	console.log("request sent");
 
 }, 1000);
-*/
+
 
 //setTimeout(function() {return eve.remove("/myAgent.js/1"); }, 2000);
 

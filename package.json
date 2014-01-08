@@ -4,8 +4,9 @@
 	"description": "NodeJS platform for Eve agents",
 	"version": "0.0.1",
 	"dependencies": {
-		"q": "latest",
 		"request": "latest",
+		"eventemitter2": "latest",
+		"q": "latest",
 		"webworker-threads": "latest",
 		"node-persist": "latest"
 	}
