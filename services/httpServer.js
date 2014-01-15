@@ -1,9 +1,8 @@
 var http = require('http'),
     url = require('url');
 
-	//Q = require('q');
-
 module.exports = HttpServer;
+
 
 	/**
 	 * Start a server handling the HTTP JSON RPC requests
@@ -12,7 +11,7 @@ module.exports = HttpServer;
 	 */
 
 
-function HttpServer(messages, topics, options) {
+function HttpServer(messages, eve, options) {
 
     http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
@@ -29,7 +28,9 @@ function HttpServer(messages, topics, options) {
 				try {
 					var parsedRPC = JSON.parse(data);
 					var eventName = "http." + pathname;
-					messages.emit(eventName, parsedRPC, function(reply) {  //TODO: do this with callback or separate event? (eg with the once method and a unique id)
+					
+					console.log("http:/" + req.url);  //TODO: strip of prefix as well
+					messages.emit("http:/" + req.url, parsedRPC, function(reply) {
 						res.writeHead(200, {'Content-Type': 'application/json'});
 		            	res.end(JSON.stringify(reply));
 					}); //should we send the parsedRPC or the serialized data?

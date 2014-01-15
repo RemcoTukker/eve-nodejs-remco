@@ -6,14 +6,17 @@ when agent is removed, what happens with already scheduled callbacks?
 Is knowledge about using JSON RPC going to reside only with the agent or only with the server? Discuss with Ludo
 Should it be possible for an agent to behave differently depending on the transport layer used?
 
-functionality: make everything work again
+functionality: 
+Add a store capability to prevent unused agents from taking up resources
 
-Stability: introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
+Stability: 
+introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 
 style and maintainability:
 prettier comments and function descriptions
 let somebody look at this code that knows JS better...
 add a layer of abstraction to the services to make it easier to write a service (just like agents)
+do we actually want the whole eventemitter business now that i dont use the wildcards anymore?
 
 related work:
 eve frontend to use eve in an express server and couple UIs to agents (think about security here at some point)
@@ -22,9 +25,13 @@ build browser-side agent environment
 
 security (all optional):
 protect agents from each other (eavesdropping) (quite easy, as we have events for each new listener)
-protect agents from server (man in the middle) (requires encryption I guess; PGP?)
 protect server from agents (taking processor power, changing settings, doing all kind of stuff @ require(agent), ... ) (requires special agent implementation; see my threaded agent code)
 see if we want to add some sort of authentication model (PGP?)
+
+protect agents from server (man in the middle) (requires encryption I guess; PGP?)
+  => actually, not necessary, as running the software there opens up everything (software can be changed at will)
+     if you dont trust the (or any) server, just run your own server, and no problem.
+
 
 optimization:
 move stuff down to c++ ? (Peet?)
@@ -33,6 +40,13 @@ improve data store, perhaps a db?
 */
 
 
+
+/*
+	TODO: 
+		* See if we want to move the callbacks for requests down to the agent implementation or not
+		* 
+
+*/
 
 /**
  *
@@ -43,16 +57,17 @@ improve data store, perhaps a db?
 // the event emitter that provides communication within this Eve environment
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 
-module.exports = Eve;
+module.exports = Eve; //do we actually want to export all of Eve or just some interface?
 
 
 var messages = new EventEmitter2({
 	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
 	newListener: true, 			// if you want to emit the newListener event set to true.
-	maxListeners: 1, 			//max listeners that can be assigned to an event, default 10.
+	maxListeners: 1000, 			//max listeners that can be assigned to an event, default 10.
 	wildcard: false 			// use+ wildcards.
 });
 
+/* do we need topics at all?
 var topics = new EventEmitter2({
 	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
 	newListener: true, 			// if you want to emit the newListener event set to true.
@@ -61,6 +76,7 @@ var topics = new EventEmitter2({
 });
 //hrm, actually, these 'topics' may be a bit dangerous as the event may be changed by one of the listeners? (or not?) 
 //Do we even want to include them or just build them on top of the normal messages and take the performance hit (should be relatively small)?
+*/
 
 // the default settings
 var defaultOptions = {
@@ -76,7 +92,7 @@ var defaultOptions = {
 var services = {};
 
 // the array that will hold all the agents
-// note that the entries in this array are not used for communication, only for server business (listing agents, removing them, etc)
+// note that the entries in this array are only used for server business (listing agents, removing them, etc)
 var agentArray = [];
 
 function Eve(options) {
@@ -84,87 +100,92 @@ function Eve(options) {
 	// to make sure that code doesnt fail if new is omitted
 	if ( !(this instanceof Eve) ) return new Eve(options); 
 
+	/*
+	 *	Communication functions
+	 */
+
+	// registering for incoming messages	
+	//TODO: allow for multiple types/names to be registered at once
+	this.on = function(type, name, callback) {
+		var address = type + "://" + name; 
+		//if (messages.listeners(address).length > 0) return false; //hrm do this better (?), keep a list of addresses (?)
+		messages.on(address, callback);
+	};
+
+	//sending a message
+	this.sendMessage = function(to, RPC, callback) {
+		var type = to.substr(0,to.indexOf(':'));
+		messages.emit(type, to, RPC, callback); //callback may be function or address (?)
+	};
+	
+	/*
+	 *	Service management functions
+	 */
+
+	//Starting services. This should be done synchronously I guess...
+	//TODO: add proper checks and warnings
+	this.addServices = function(services) {
+		for (var service in services) {
+			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
+			var Service = require(filename);
+			services[service] = new Service(messages, this, options.services[service]);
+
+			//alternative without constructors:
+			//this.services[service] = require(filename);
+			//this.services[service].start(options.services[service]);  
+		}
+	};
+
+	this.removeServices = function() {};
+	this.listServices  = function() {};
+
+	/*
+     *	Agent management functions
+	 */
+
+	//TODO add proper checks and warnings. Maybe make it possible to add 1 agent without embedding it in a superobject
+	this.addAgents = function(agents) { 
+		for (var agent in agents) {
+			var filename = './agents/' + agents[agent].filename + '.js'; // load code, case sensitive
+			var AgentConstructor = require(filename); 
+			agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+		}
+	};
+
+	this.removeAgents = function() {}; 
+	this.listAgents = function() {};
+
+	/*
+	 *	Other management functions 
+	*/
+
+	this.serverStatus = function() {};
+	this.notifyAll = function() {}; 	// this may be implemented as a topic.. mwah, perhaps just a specific function in each agent
+	
+	/* should the following actually be implemented? perhaps as an extra service in combination with storing the agent in a db?
+	this.pause = function() {};
+	this.resume = function() {};
+	*/
+
+	/*
+	 * 	Constructor / Init work
+	 */
+
 	// deal with parameters
 	options = options || {};
 	for (var option in defaultOptions) { if ( !(option in options) ) options[option] = defaultOptions[option]; }
 
-	// start optional services	TODO: add proper checks and warnings
-	this.services = {};
-	for (var service in options.services) {
-		var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
-		var Service = require(filename);
-		services[service] = new Service(messages, topics, options.services[service]);
+	// start optional services (Note: do this synchronously, in case order matters)	
+	this.addServices(options.services);
+	
+	// start optional agents
+	this.addAgents(options.agents);
 
-		//alternative without constructors:
-		//this.services[service] = require(filename);
-		//this.services[service].start(options.services[service]);  
-		
-	}	
 
-	//services that we should have available: undeliveredwarnings, httpserver, addressbook?
+	
+	//services that we should have available: undeliveredwarnings, addressbook?
 		//remotemanagementagent (hrm this is not a service actually), webgui / express server (instead of http server?)
 
-	/*
-	 *	Local management functions 
-	*/
-
-	this.addServices = function() {};
-	this.removeServices = function() {};
-	this.listServices  = function() {};
-	
-	this.addAgents = function(agents) { //TODO add proper checks and warnings. Maybe make it possible to add 1 agent without embedding it in a superobject
-		for (var agent in agents) {
-			
-			// in case addresses were supplied in the options by the user, try to claim these. If successfull, pass them to new agent in agent.options, if unsuccessful, give error.
-			// Dont let the server try to supply addresses to the agent, its none of the servers business		
-			// what we should let the agent know however, is how the eventemitter works exactly, and what prefixes should be used and so on, as that is none of the agents business..
-			// maybe add a special function to the event emitter to make that easy
-
-			// load code
-			var filename = './agents/' + agents[agent].filename + '.js';
-			var AgentConstructor = require(filename); 
-						
-			agentArray.push(new AgentConstructor(messages, topics, agents[agent].options));
-
-		}
-	};
-
-	this.removeAgents = function() {
-
-	};
-
-	this.listAgents = function() {
-
-	};
-
-	this.serverStatus = function() {
-
-	};
-
-	// this may be implemented as a topic
-	this.notifyAll = function() {
-
-	};
-	
-	/* Do we want to supply a centralized function for this to claim addresses over mutliple services or leave it up to the agents themselves? (eg http and zeromq)
-				(for security, use setMaxListeners = 1 (?))
-	this.claimAddresses {
-
-	}
-
-	*/
-
-	/* should the following actually be implemented? perhaps as an extra service in combination with storing the agent in a db?
-
-	this.pause = function() {
-
-	};
-
-	this.resume = function() {
-
-	};
-
-	*/
 
 	/* this is one of the ways we could do express integration (and I think the best way). Export this function (even better would be to export it from a "plugin"!)
 	
@@ -193,10 +214,7 @@ function Eve(options) {
 	
 	*/
 
-	//convenience function for sending a message
-	this.sendMessage = function() {
-
-	};
+	
 
 }
 
@@ -235,14 +253,6 @@ eve.requestRelayPromise = function (params) {
 	}
 
 }
-*/
-
-/**
- * old nodejs exports
- 
-exports.listen = eve.listen;
-exports.management = eve.agentList["/agents/management"];
-exports.handleRequest = eve.incomingRequest;
 */
 
 
