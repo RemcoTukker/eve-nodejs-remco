@@ -60,7 +60,8 @@ function SimpleAgent(on, send, filename, options ) {
 		callback({ok:"thanks"});
 				//NB: we _need_ nexttick here, because other we may do timestep++ before 
 				//     we actually sent out the result of the current timestep
-		if (notifications[parsedRPC.timeStep] == neighbours.length) process.nextTick(function() {
+		//if (notifications[parsedRPC.timeStep] == neighbours.length) process.nextTick(function() {
+		if (notifications[parsedRPC.timeStep] == neighbours.length) setImmediate(function() {
 			//console.log(n + " gots everything @timestep " + timestep );			
 			if (result[timestep] == 3) living = true;
 			if (result[timestep] < 2 || result[timestep] > 3) living = false;

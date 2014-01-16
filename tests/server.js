@@ -31,7 +31,11 @@ var Eve                   = require('../eve.js');
 
 //var myEve = new Eve({services: {}});
 
-var gridsize = 30;
+//To use with node 0.10, either use this:
+//process.maxTickDepth = 10000000;
+//or solve the problem by using setImmediate instead of process.nexttick in the agents
+
+var gridsize = 10;
 var mx = 1000;
 var lifeAgents = {};
 for (var i = 0; i < gridsize*gridsize; i++) {
