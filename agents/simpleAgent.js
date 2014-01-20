@@ -15,7 +15,7 @@ function SimpleAgent(on, send, filename, options ) {
 */
 
 	var timestep = 0;
-	var n = options.id;
+	var n = options.instanceNumber;
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var gr = options.grid;
@@ -58,8 +58,9 @@ function SimpleAgent(on, send, filename, options ) {
 		notifications[parsedRPC.timeStep]++;
 		result[parsedRPC.timeStep] += parsedRPC.living;
 		callback({ok:"thanks"});
-				//NB: we _need_ nexttick here, because other we may do timestep++ before 
-				//     we actually sent out the result of the current timestep
+				//NB: we _need_ nexttick here, because other we may do timestep++ before sending out previous broadcast
+				//NB2: this behavior was changed in node 0.10, setimmediate is the new nexttick 
+				// (nexttick now gets inserted at top of call stack)
 		//if (notifications[parsedRPC.timeStep] == neighbours.length) process.nextTick(function() {
 		if (notifications[parsedRPC.timeStep] == neighbours.length) setImmediate(function() {
 			//console.log(n + " gots everything @timestep " + timestep );			

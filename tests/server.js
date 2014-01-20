@@ -37,17 +37,22 @@ var Eve                   = require('../eve.js');
 
 var gridsize = 10;
 var mx = 1000;
+
+/* //using separate prototype for each agent: faster, but more memory
 var lifeAgents = {};
 for (var i = 0; i < gridsize*gridsize; i++) {
 	var name = "agent" + i;
-	lifeAgents[name] = {filename: 'simpleAgent', options: {id: i, maxtimesteps: mx, grid: gridsize} };
+	lifeAgents[name] = {filename: 'simpleAgent.js', options: {instanceNumber: i, maxtimesteps: mx, grid: gridsize} };
 }
+*/
+ //using a single prototype: less memory, but slower
+lifeAgents = {filename: 'simpleAgent.js', number: gridsize*gridsize, options: {maxtimesteps: mx, grid: gridsize} };
 
 var eveOptions = {
-	services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests2: {} },
+	services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} },
 	//agents: { agent1: {filename: 'simpleAgent', options: {} } }
 	agents: lifeAgents
-}
+} 
 
 var myEve = new Eve(eveOptions);
 

@@ -5,9 +5,9 @@
 	"version": "0.0.1",
 	"dependencies": {
 		"request": "latest",
-		"eventemitter2": "latest",
-		"q": "latest",
-		"webworker-threads": "latest",
-		"node-persist": "latest"
-	}
+		"eventemitter2": "latest"
+	},
+ 	"engines": {
+    	"node": ">=0.10"
+  	}
 }

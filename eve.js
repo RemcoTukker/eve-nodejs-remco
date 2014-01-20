@@ -143,12 +143,32 @@ function Eve(options) {
      *	Agent management functions
 	 */
 
-	//TODO add proper checks and warnings. Maybe make it possible to add 1 agent without embedding it in a superobject
+	//TODO complete proper checks and warnings.
+	//TODO actually use the name of the agent that the user specifies? Either that, or use an array of objects instead of a superobject
+		// probably best to use name of agent; easier debugging (by giving an agent a specific name)
 	this.addAgents = function(agents) { 
+		// in case the user specifies only one agent, embed it in a superobject
+		if ((typeof agents.filename != "undefined") && (typeof agents.filename.filename === "undefined")) {
+			tmpAgents = agents;
+			agents = {};
+			agents[tmpAgents.filename] = tmpAgents;
+		}
+
+		// loop over an object that has an agent for each entry		
 		for (var agent in agents) {
-			var filename = './agents/' + agents[agent].filename + '.js'; // load code, case sensitive
+			var filename = './agents/' + agents[agent].filename; // load code, NB case sensitive
 			var AgentConstructor = require(filename); 
-			agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+			// check if the user wants many instances of agents from one prototype
+			if (typeof agents[agent].number != "undefined") {
+				for (var instanceNumber = 0; instanceNumber < agents[agent].number; instanceNumber++) { // make this 0-based or 1-based?
+					if (typeof agents[agent].options === "undefined") agents[agent].options = {};
+					//agents[agent].options.instanceNumber = agents[agent].options.instanceNumber || instanceNumber;
+					agents[agent].options.instanceNumber = instanceNumber; //NB instanceNumber is a special option!
+					agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+				}
+			} else {
+				agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+			}
 		}
 	};
 
