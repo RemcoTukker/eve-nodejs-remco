@@ -1,5 +1,7 @@
 module.exports = LocalRequests;
 
+// Maybe we actually want to merge this into one file with the other solution (localRequest2) and make it a optional parameter?
+
 function LocalRequests(messages, eve, options) {
 
 	//monkey patching / replacing eve sendMessage function to include a shortcut for the local messages
