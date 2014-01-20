@@ -38,7 +38,7 @@ for (var i = 0; i < gridsize*gridsize; i++) {
 }
 */
    //using a single prototype: less memory, but slower
-lifeAgents = {filename: 'simpleAgent2.js', number: gridsize*gridsize, options: {maxtimesteps: mx, grid: gridsize} };
+lifeAgents = {filename: 'simpleAgent.js', number: gridsize*gridsize, options: {maxtimesteps: mx, grid: gridsize} };
 
 
 var eveOptions = {
