@@ -10,7 +10,9 @@ module.exports = HttpRequests;
 	TODO:
 	Add proper checks and warnings
 	Check whether we want the reply to call a callback (like now), or emit an event, moving the callback system down to the agent (cleaner?)
-
+			Performance hit of extra emitted events shouldnt be an issue at this rate...
+	Check performance of this this and of the http server; seems to work a factor 5-10 slower than would be reasonable 
+		(like 100 requests per second)
 **/
 
 function HttpRequests(messages, eve, options) {
@@ -22,7 +24,6 @@ function HttpRequests(messages, eve, options) {
 		});
 
 	});
-
 
 }
 

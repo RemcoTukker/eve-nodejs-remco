@@ -17,7 +17,7 @@ function HttpServer(messages, eve, options) {
         var pathname = url.parse(req.url).pathname;
 		var prefix = pathname.split('/')[1];
 
-		//if (prefix == 'agents') { //agent request, route to agents //TODO see if we want to use such a prefix or not
+		//if (prefix == 'agents') { //agent request, route to agents //TODO see if we want to use such a prefix or not / make it optional
 
 			var data = "";
 		    req.on("data", function(chunk) { data += chunk; });
@@ -34,8 +34,11 @@ function HttpServer(messages, eve, options) {
 		            	res.end(JSON.stringify(reply));
 					});
 
-					//alternative is just to send a "message delivered" reply and leave it up to the agent to see whether a message should be answered or not
-					//also, JSON RPC notification dont need an answer at all
+					//alternative is just to send a "message delivered" reply and leave it up to the agent to see 
+					// whether a message should be answered or not
+					//Actually, as it is now is better, agent decides whether to reply meaningful or just with "delivered"
+					//however, JSON RPC notification dont need an answer at all
+					//TODO: check whether we got a notification or something that requires an answer
 			
 				} catch(err) { //probably message couldnt be parsed
 					res.writeHead(200, {'Content-Type': 'application/json'});
@@ -51,7 +54,6 @@ function HttpServer(messages, eve, options) {
     }).listen(options.port, options.host);
 
 	//TODO: maybe add some notification that this service is up and running
-
 
 }
 

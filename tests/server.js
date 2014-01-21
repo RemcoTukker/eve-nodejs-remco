@@ -29,9 +29,8 @@ var mx = 10;
 
 var Eve                   = require('../eve.js');
 
-
-/* //using separate prototype for each agent: faster, but more memory
 var lifeAgents = {};
+/* //using separate prototype for each agent: faster, but more memory
 for (var i = 0; i < gridsize*gridsize; i++) {
 	var name = "agent" + i;
 	lifeAgents[name] = {filename: 'simpleAgent.js', options: {instanceNumber: i, maxtimesteps: mx, grid: gridsize} };
@@ -42,7 +41,8 @@ lifeAgents = {filename: 'simpleAgent.js', number: gridsize*gridsize, options: {m
 
 
 var eveOptions = {
-	services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} },
+	services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
+	//services: { httpServer: {port:PORT, host:HOST, etc:0}, localRequests: {} },
 	agents: lifeAgents
 } 
 
@@ -53,5 +53,5 @@ console.log("starting game of life with gridsize " + gridsize + " for " + mx + "
 var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * mx;
 console.log("involving " + nrRPCs + " RPCs");
 
-setTimeout(function() {myEve.sendMessage("local://start"); console.time('run'); }, 1000);
+setTimeout(function() {myEve.publish("service/eveserver", {content:"start"}); console.time('run'); }, 1000);
 

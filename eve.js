@@ -44,7 +44,8 @@ improve data store, perhaps a db?
 /*
 	TODO: 
 		* See if we want to move the callbacks for requests down to the agent implementation or not
-		* 
+		* See if we want to allow services to supply functions to agents for using the service
+				(would be cute and pretty I guess, but would it be practical? => work it out in a branch)
 
 */
 
@@ -63,20 +64,25 @@ module.exports = Eve; //do we actually want to export all of Eve or just some in
 var messages = new EventEmitter2({
 	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
 	newListener: true, 			// if you want to emit the newListener event set to true.
-	maxListeners: 1000, 			//max listeners that can be assigned to an event, default 10.
+	maxListeners: 1, 			//max listeners that can be assigned to an event, default 10.
 	wildcard: false 			// use+ wildcards.
 });
 
-/* do we need topics at all?
+// do we need topics at all? Yes we do, extremely convenient
+// However, how do we want to implement them? on top of normal messages with special topic agents, or using a second eventemitter?
+//    For something that we want to support out of the box, lets just use a second eventemitter: faster
+// Future: lets see if we can make both messages and topics into optional services
+// Also, note that topic works only locally
 var topics = new EventEmitter2({
 	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
 	newListener: true, 			// if you want to emit the newListener event set to true.
-	maxListeners: 100, 			//max listeners that can be assigned to an event, default 10.
+	maxListeners: 10000,		// max listeners that can be assigned to an event, default 10.
 	wildcard: true 				// use+ wildcards.
 });
-//hrm, actually, these 'topics' may be a bit dangerous as the event may be changed by one of the listeners? (or not?) 
-//Do we even want to include them or just build them on top of the normal messages and take the performance hit (should be relatively small)?
-*/
+//Check: hrm, actually, these 'topics' may be a bit dangerous as the event may be changed by one of the listeners? (or not?)
+//but this is fixed with Object.freeze() 
+
+
 
 // the default settings
 var defaultOptions = {
@@ -117,7 +123,23 @@ function Eve(options) {
 		var type = to.substr(0,to.indexOf(':'));
 		messages.emit(type, to, RPC, callback); //callback may be function or address (?)
 	};
-	
+
+	// subscribe to a topic	
+	this.subscribe = function(topic, callback) {
+		topics.on(topic, callback);
+	}
+
+	//publish on a topic
+	this.publish = function(topic, message) {
+		if (typeof message != "object") {
+			console.log("Publishing failed: tried to publish a non-object");
+			return;
+		}
+		Object.freeze(message); //make sure the subscribers dont change the message, would turn out very messy
+		topics.emit(topic, message);
+	}
+
+
 	/*
 	 *	Service management functions
 	 */
@@ -143,13 +165,14 @@ function Eve(options) {
      *	Agent management functions
 	 */
 
+	
 	//TODO complete proper checks and warnings.
 	//TODO actually use the name of the agent that the user specifies? Either that, or use an array of objects instead of a superobject
 		// probably best to use name of agent; easier debugging (by giving an agent a specific name)
 	this.addAgents = function(agents) { 
 		// in case the user specifies only one agent, embed it in a superobject
 		if ((typeof agents.filename != "undefined") && (typeof agents.filename.filename === "undefined")) {
-			tmpAgents = agents;
+			var tmpAgents = agents;
 			agents = {};
 			agents[tmpAgents.filename] = tmpAgents;
 		}
@@ -164,10 +187,10 @@ function Eve(options) {
 					if (typeof agents[agent].options === "undefined") agents[agent].options = {};
 					//agents[agent].options.instanceNumber = agents[agent].options.instanceNumber || instanceNumber;
 					agents[agent].options.instanceNumber = instanceNumber; //NB instanceNumber is a special option!
-					agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+					agentArray.push(new AgentConstructor(this.on, this.sendMessage, this.subscribe, this.publish, filename, agents[agent].options));
 				}
 			} else {
-				agentArray.push(new AgentConstructor(this.on, this.sendMessage, filename, agents[agent].options));
+				agentArray.push(new AgentConstructor(this.on, this.sendMessage, this.subscribe, this.publish, filename, agents[agent].options));
 			}
 		}
 	};

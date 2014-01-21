@@ -1,20 +1,22 @@
-MyAgent = require("./simpleAgentBase.js");
+var MyAgent = require("./simpleAgentBase.js");
 module.exports = MyAgent;
 
 // defining our own stuff on top of the AgentBase
 
 //TODO
-//this prototype here is ugly.. see if / how we can make it prettier; also, its not nice everything should happen in this function..
+//this prototype here is kinda ugly.. see if / how we can make it prettier; also, its not nice everything should happen in this function..
 // (on the other hand, declaring the variables to be used by my own code is really convenient now.. PITA to all the time go through 'this')
 
 //probably we should work it out using an agent factory
-//or maybe just define the constructor in this file and just import some utility functions form the agentbase
+//or maybe define the constructor in this file and just import some utility functions from the agentbase
 
-//what i want is just one object that is the prototype for potentially many agents, 
+//what i want is just one plain object that is the prototype for potentially many agents, 
 // with all the RPC functions in the agent.RPCfunctions object
 
 
-MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction, schedule) {
+MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, schedule) {
+
+	// initialization stuff
 
 	var timestep = 0;
 	var n = options.instanceNumber;
@@ -40,6 +42,7 @@ MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction
 		result[i] = 0;
 	}
 	
+	// this is the function that we will use to send out the RPCs to inform the other cells of our state
 	var broadcast = function(curtimestep, curliving) {
 		for (var i = 0; i < neighbours.length; i++) {
 			//send("http://127.0.0.1:1337/tests/myAgent/" + neighbours[i], 
@@ -49,13 +52,21 @@ MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction
 		}
 	} 
 
+	// subscribing to the topic that will publish the start message
+	subscribe('service/eveserver', function(message) {
+		if (message.content == "start")	broadcast(timestep, living);
+	});
+
+
+	// Add a function that can be called by RPCs from other cells, collecting neighbouring states
 	this.RPCfunctions.collect = function(params, callback) {
 		notifications[params.timeStep]++;
 		result[params.timeStep] += params.living;
 		callback({ok:"thanks"});
 
-		//NB: we _need_ setImmediate here, because other we may do timestep++ before sending out broadcast of current timestep
-		if (notifications[params.timeStep] == neighbours.length) setImmediate(function() {
+		//NB: we need schedule here (translates to setImmediate when no time is given), 
+		// because otherwise we may do timestep++ before sending out broadcast of current timestep
+		if (notifications[params.timeStep] == neighbours.length) schedule(function() {
 
 			if (result[timestep] == 3) living = true;
 			if (result[timestep] < 2 || result[timestep] > 3) living = false;
@@ -70,10 +81,6 @@ MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction
 			broadcast(timestep, living);
 		});
 	}
-
-	registerToTopic('start', function(parsedRPC, callback) {
-		broadcast(timestep, living);
-	});
 
 }
 

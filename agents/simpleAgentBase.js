@@ -1,6 +1,6 @@
 module.exports = SimpleAgentBase;
 
-function SimpleAgentBase(on, send, filename, options ) {
+function SimpleAgentBase(on, send, sub, pub, filename, options, comms) {
 
 	this.RPCfunctions = {};
 
@@ -29,8 +29,6 @@ function SimpleAgentBase(on, send, filename, options ) {
 		that[parsedRPC.method](parsedRPC.params, callback);
 	});
 
-
-
 	/*
 	 * 	Obligatory Eve methods
   	 */
@@ -50,13 +48,19 @@ function SimpleAgentBase(on, send, filename, options ) {
 		//}
 	};
 
-	this.registerToTopic = function(topicName, callback) {
-		on('local', topicName, callback);
+/*
+	this.subscribe = function(topicName, callback) {
+		sub(topicName, callback);
 		//on('local', topicName, this[callback]);
 	};
-	
+*/	
+
 	this.schedule = function(callback, time) {
-		//setTimeOut / setImmediate + remembering callback for removing them when removing agent
+
+		if (time == 0 || (typeof time != "number")) setImmediate(callback);
+		else setTimeOut(callback, time);
+
+		//TODO: remembering callback for removing them when removing agent
 	};
 
 	// function that may become useful if we want to set more options
@@ -65,6 +69,6 @@ function SimpleAgentBase(on, send, filename, options ) {
 	};
 
 	// if user defined some init function, execute it
-	if (typeof this.init == "function") this.init(options, send, this.registerToTopic, this.setRPCfunction, this.schedule);
+	if (typeof this.init == "function") this.init(options, send, sub, this.setRPCfunction, this.schedule);
 
 }
