@@ -12,31 +12,27 @@ module.exports = HttpServer;
 
 
 function HttpServer(messages, eve, options) {
-
+	
     http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
-        
 		var prefix = pathname.split('/')[1];
-		if (prefix == 'agents') { //agent request, route to agents
+
+		//if (prefix == 'agents') { //agent request, route to agents //TODO see if we want to use such a prefix or not
 
 			var data = "";
 		    req.on("data", function(chunk) { data += chunk; });
 
 		    req.on("end", function() {
-		        console.log("receiving request: " + pathname + data);
+		        
 
 				try {
 					var parsedRPC = JSON.parse(data);
 					var eventName = "http." + pathname;
-					
-					console.log("http:/" + req.url);  //TODO: strip of prefix as well
+
 					messages.emit("http:/" + req.url, parsedRPC, function(reply) {
 						res.writeHead(200, {'Content-Type': 'application/json'});
 		            	res.end(JSON.stringify(reply));
-					}); //should we send the parsedRPC or the serialized data?
-
-					//prolly better to use an event to stay consistent..
-
+					});
 
 					//alternative is just to send a "message delivered" reply and leave it up to the agent to see whether a message should be answered or not
 					//also, JSON RPC notification dont need an answer at all
@@ -47,11 +43,11 @@ function HttpServer(messages, eve, options) {
 				}
 		    });
 
-		} else {  //try to route the request to one of our webpages
-			var now = new Date();
-  			var html = "<p>Hello World, in case you want more functionality on webpages, simply embed eve in an express server.</p>"; 
- 			res.end(html);
-		}
+		//} else {  //try to route the request to one of our webpages
+		//	var now = new Date();
+  		//	var html = "<p>Hello World, in case you want more functionality on webpages, simply embed eve in an express server.</p>"; 
+ 		//	res.end(html);
+		//}
     }).listen(options.port, options.host);
 
 	//TODO: maybe add some notification that this service is up and running

@@ -24,8 +24,8 @@ Agent functionality:
 var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
-var gridsize = 30;
-var mx = 1000;
+var gridsize = 10;
+var mx = 10;
 
 var Eve                   = require('../eve.js');
 

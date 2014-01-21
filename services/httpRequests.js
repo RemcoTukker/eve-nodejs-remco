@@ -16,8 +16,8 @@ module.exports = HttpRequests;
 function HttpRequests(messages, eve, options) {
 
 	messages.on('http', function(destination, RPC, callback) {
-		console.log("doing http request to " + destination);
-		request({uri: destination, method: 'POST', json: JSON.stringify(RPC)}, function(error, response, body) {
+		//console.log("doing http request to " + destination);
+		request({uri: destination, method: 'POST', json: RPC}, function(error, response, body) {
 			callback(body); 
 		});
 

@@ -25,6 +25,7 @@ function SimpleAgentBase(on, send, filename, options ) {
 	});
 
 	on('http', 'tests/myAgent/' + options.instanceNumber, function(parsedRPC, callback) {
+
 		that[parsedRPC.method](parsedRPC.params, callback);
 	});
 

@@ -42,6 +42,7 @@ MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction
 	
 	var broadcast = function(curtimestep, curliving) {
 		for (var i = 0; i < neighbours.length; i++) {
+			//send("http://127.0.0.1:1337/tests/myAgent/" + neighbours[i], 
 			send("local://tests/myAgent/" + neighbours[i], 
 					{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
 					function(answer){ }); //dont have to do anything... just pushing the result
@@ -52,7 +53,7 @@ MyAgent.prototype.init = function(options, send, registerToTopic, setRPCfunction
 		notifications[params.timeStep]++;
 		result[params.timeStep] += params.living;
 		callback({ok:"thanks"});
-		
+
 		//NB: we _need_ setImmediate here, because other we may do timestep++ before sending out broadcast of current timestep
 		if (notifications[params.timeStep] == neighbours.length) setImmediate(function() {
 
