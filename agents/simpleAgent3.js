@@ -3,8 +3,21 @@
 
 // see simpleAgent2 and simpleAgent3 for different implementations
 
-var MyAgent = require("./simpleAgentBase.js");  //relaying the constructor to the agentBase
-module.exports = MyAgent;
+var AgentFactory = require("./simpleAgentBase3.js");  //relaying the constructor to the agentBase
+module.exports = AgentFactory;
+
+var myAgent = AgentFactory.agent;
+
+myAgent.constructor = function() {
+
+
+
+}
+
+
+
+
+
 
 MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, schedule) { 
 

@@ -1,15 +1,22 @@
-// the simple agent as a prototype function that is called from the constructor of the actual agent
-// and adds the user defined functions and init to the agent
+// the simple agent inheriting its utility functions from the agentBase
 
-// see simpleAgent2 and simpleAgent3 for different implementations
+// no layer between eve and this agents constructor
+// all method and properties of the agent have to be defined within the constructor
+// 
 
-var MyAgent = require("./simpleAgentBase.js");  //relaying the constructor to the agentBase
-module.exports = MyAgent;
+// see simpleAgent1 for different implementation
 
-MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, schedule) { 
+
+var agentBase2 = require("./simpleAgentBase2.js");
+module.exports = MyAgent2;
+MyAgent2.prototype = agentBase2;
+
+function MyAgent2(on, send, sub, pub, filename, options) {
 
 	// initialization stuff
 
+	this.registerAddresses(on, options, this.RPCfunctions);
+		
 	var timestep = 0;
 	var n = options.instanceNumber;
 	var living = (Math.random() < .5);
@@ -45,10 +52,13 @@ MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, sche
 	} 
 
 	// subscribing to the topic that will publish the start message
-	subscribe('service/eveserver', function(message) {
+	sub('service/eveserver', function(message) {
 		if (message.content == "start")	broadcast(timestep, living);
 	});
 
+	var schedule = this.schedule;
+	//alt: var schedule = agentBase2.schedule;
+	//alt2: supply schedule to the constructor
 
 	// Add a function that can be called by RPCs from other cells, collecting neighbouring states
 	this.RPCfunctions.collect = function(params, callback) {
@@ -60,6 +70,7 @@ MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, sche
 		// because otherwise we may do timestep++ before sending out broadcast of current timestep
 		if (notifications[params.timeStep] == neighbours.length) schedule(function() {
 
+			//console.log("hi! ");
 			if (result[timestep] == 3) living = true;
 			if (result[timestep] < 2 || result[timestep] > 3) living = false;
 			timestep++;
@@ -67,14 +78,13 @@ MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, sche
 				if (n == 0) { 
 					console.log("reached " + options.maxtimesteps + " timesteps");
 					console.timeEnd('run');
-					
 				}
 				return;
 			}
+			//console.log("broadcasting again: " + n + " "  + timestep + "  " + living);
 			broadcast(timestep, living);
 		});
 	}
-	
 }
 
 

@@ -193,6 +193,7 @@ function Eve(options) {
 				agentArray.push(new AgentConstructor(this.on, this.sendMessage, this.subscribe, this.publish, filename, agents[agent].options));
 			}
 		}
+		
 	};
 
 	this.removeAgents = function() {}; 

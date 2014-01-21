@@ -1,6 +1,11 @@
-module.exports = SimpleAgentBase;
 
-function SimpleAgentBase(on, send, sub, pub, filename, options, comms) {
+// agent factory function
+
+function SimpleAgentBase3(on, send, sub, pub, filename, options, comms) {
+
+
+	return new agent(); 
+	
 
 	this.RPCfunctions = {};
 
@@ -73,3 +78,15 @@ function SimpleAgentBase(on, send, sub, pub, filename, options, comms) {
 
 
 }
+
+// object that is extended by the user 
+var agent = {
+	RPCfunctions: {};
+
+}
+
+
+module.exports = SimpleAgentBase3;
+module.exports.agent = agent;
+
+
