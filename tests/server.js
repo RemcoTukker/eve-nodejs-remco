@@ -24,34 +24,40 @@ Agent functionality:
 var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
-var gridsize = 10;
-var mx = 10;
+var gridsize = 30;
+var steps = 1000;
+//using a single prototype: less memory, but slower
+//using separate prototype for each agent: faster, but more memory
+var singlePrototype = false; 
+//myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style
+//myAgent1 seems faster 
+var file = "myAgent1.js"; 
 
 var Eve                   = require('../eve.js');
 
 var lifeAgents = {};
-/* //using separate prototype for each agent: faster, but more memory
-for (var i = 0; i < gridsize*gridsize; i++) {
-	var name = "agent" + i;
-	lifeAgents[name] = {filename: 'simpleAgent.js', options: {instanceNumber: i, maxtimesteps: mx, grid: gridsize} };
-}
-*/
-   //using a single prototype: less memory, but slower
-lifeAgents = {filename: 'simpleAgent2.js', number: gridsize*gridsize, options: {maxtimesteps: mx, grid: gridsize} };
 
+if (singlePrototype) {
+	lifeAgents = {filename: file, number: gridsize*gridsize, options: {maxtimesteps: steps, grid: gridsize} };
+} else {
+	for (var i = 0; i < gridsize*gridsize; i++) {
+		var name = "agent" + i;
+		lifeAgents[name] = {filename: file, options: {instanceNumber: i, maxtimesteps: steps, grid: gridsize} };
+	}
+}
 
 var eveOptions = {
-	services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
-	//services: { httpServer: {port:PORT, host:HOST, etc:0}, localRequests: {} },
+	//services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
+	services: { httpServer: {port:PORT, host:HOST, etc:0}, localRequests: {} },
 	agents: lifeAgents
 } 
 
 var myEve = new Eve(eveOptions);
 
-console.log("starting game of life with gridsize " + gridsize + " for " + mx + " timesteps" );
-
-var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * mx;
+console.log("starting game of life with gridsize " + gridsize + " for " + steps + " timesteps" );
+var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps;
 console.log("involving " + nrRPCs + " RPCs");
 
+// give start sign after a slight timeout to make sure agents are instantiated (TODO: add "all instantiated" event)
 setTimeout(function() {myEve.publish("service/eveserver", {content:"start"}); console.time('run'); }, 1000);
 

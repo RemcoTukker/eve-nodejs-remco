@@ -1,24 +1,25 @@
-// the simple agent as a prototype function that is called from the constructor of the actual agent
-// and adds the user defined functions and init to the agent
+var AgentBase = require("./agentBase.js");  //relaying the constructor to the agentBase
+module.exports = AgentBase;
+var myAgent = AgentBase.prototype;
 
-// see simpleAgent2 and simpleAgent3 for different implementations
+//we're extending the prototype for the "agentbase" in agentBase.js with our own functionality
+//this allows us to abstract away nasty bookkeeping tasks and allowing the programmer to focus on the agent functionality
+//this version of the agent uses closure to minimize typing and bookkeeping effort 
+// (at the cost of having everything in one huge init function)
 
-var MyAgent = require("./simpleAgentBase.js");  //relaying the constructor to the agentBase
-module.exports = MyAgent;
-
-MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, schedule) { 
+myAgent.init = function() {
+	//by the way, you can even supply all required functions as parameters to the init functions, to almost completely get rid of "this"
 
 	// initialization stuff
-
 	var timestep = 0;
-	var n = options.instanceNumber;
+	var n = this.options.instanceNumber;
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var notifications = [];
 	var result = [];
-	var maxtimesteps = options.maxtimesteps;
+	var maxtimesteps = this.options.maxtimesteps;
 
-	var gr = options.grid;
+	var gr = this.options.grid;
 
 	if (n >= gr) neighbours.push(n-gr); //upper neighbour
 	if (n < (gr*gr - gr)) neighbours.push(n+gr); //lower neighbour
@@ -34,6 +35,7 @@ MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, sche
 		result[i] = 0;
 	}
 	
+	var send = this.send;
 	// this is the function that we will use to send out the RPCs to inform the other cells of our state
 	var broadcast = function(curtimestep, curliving) {
 		for (var i = 0; i < neighbours.length; i++) {
@@ -45,37 +47,38 @@ MyAgent.prototype.init = function(options, send, subscribe, setRPCfunction, sche
 	} 
 
 	// subscribing to the topic that will publish the start message
-	subscribe('service/eveserver', function(message) {
+	this.subscribe('service/eveserver', function(message) {
 		if (message.content == "start")	broadcast(timestep, living);
 	});
 
-
 	// Add a function that can be called by RPCs from other cells, collecting neighbouring states
+	
 	this.RPCfunctions.collect = function(params, callback) {
+	
+		//console.log("got data " + params.timeStep + " " + n);
 		notifications[params.timeStep]++;
 		result[params.timeStep] += params.living;
-		callback({ok:"thanks"});
+		callback({ok:"thanks"}); //TODO: make sure we can send proper replies (with IDs for example)
 
 		//NB: we need schedule here (translates to setImmediate when no time is given), 
 		// because otherwise we may do timestep++ before sending out broadcast of current timestep
-		if (notifications[params.timeStep] == neighbours.length) schedule(function() {
+		if (notifications[params.timeStep] == neighbours.length) this.schedule(function() {
 
+			//console.log("hi! ");
 			if (result[timestep] == 3) living = true;
 			if (result[timestep] < 2 || result[timestep] > 3) living = false;
 			timestep++;
 			if (timestep == maxtimesteps) {
 				if (n == 0) { 
-					console.log("reached " + options.maxtimesteps + " timesteps");
+					console.log("reached " + maxtimesteps + " timesteps");
 					console.timeEnd('run');
-					
 				}
 				return;
 			}
+			//console.log("broadcasting again: " + n + " "  + timestep + "  " + living);
 			broadcast(timestep, living);
 		});
 	}
-	
+
 }
-
-
 
