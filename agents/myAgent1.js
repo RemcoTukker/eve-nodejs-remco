@@ -1,6 +1,6 @@
 var AgentBase = require("./agentBase.js");  //relaying the constructor to the agentBase
 module.exports = AgentBase;
-var myAgent = AgentBase.prototype;
+var myAgent = AgentBase.prototype;  //is this allright; do we need to invalidate cache or not?
 
 //we're extending the prototype for the "agentbase" in agentBase.js with our own functionality
 //this allows us to abstract away nasty bookkeeping tasks and allowing the programmer to focus on the agent functionality

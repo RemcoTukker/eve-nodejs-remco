@@ -24,11 +24,11 @@ Agent functionality:
 var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
-var gridsize = 30;
-var steps = 1000;
+var gridsize = 3;
+var steps = 10;
 //using a single prototype: less memory, but slower
 //using separate prototype for each agent: faster, but more memory
-var singlePrototype = false; 
+var singlePrototype = true; 
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style
 //myAgent1 seems faster 
 var file = "myAgent1.js"; 
@@ -48,7 +48,7 @@ if (singlePrototype) {
 
 var eveOptions = {
 	//services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
-	services: { httpServer: {port:PORT, host:HOST, etc:0}, localRequests: {} },
+	services: { httpTransport: {port:PORT, host:HOST, etc:0}, localTransport: {} },
 	agents: lifeAgents
 } 
 

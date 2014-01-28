@@ -7,7 +7,7 @@ Is knowledge about using JSON RPC going to reside only with the agent or only wi
 Should it be possible for an agent to behave differently depending on the transport layer used?
 
 functionality: 
-Add a store capability to prevent unused agents from taking up resources
+Add a store capability to prevent unused agents from taking up resources with a db
 
 Stability: 
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
@@ -16,7 +16,6 @@ style and maintainability:
 prettier comments and function descriptions
 let somebody look at this code that knows JS better...
 add a layer of abstraction to the services to make it easier to write a service (just like agents)
-do we actually want the whole eventemitter business now that i dont use the wildcards anymore?
 
 related work:
 eve frontend to use eve in an express server and couple UIs to agents (think about security here at some point)
@@ -28,26 +27,11 @@ protect agents from each other (eavesdropping) (quite easy, as we have events fo
 protect server from agents (taking processor power, changing settings, doing all kind of stuff @ require(agent), ... ) (requires special agent implementation; see my threaded agent code)
 see if we want to add some sort of authentication model (PGP?)
 
-protect agents from server (man in the middle) (requires encryption I guess; PGP?)
-  => actually, not necessary, as running the software there opens up everything (software can be changed at will)
-     if you dont trust the (or any) server, just run your own server, and no problem.
-
-
 optimization:
 move stuff down to c++ ? (Peet?)
-improve data store, perhaps a db?
 
 */
 
-
-
-/*
-	TODO: 
-		* See if we want to move the callbacks for requests down to the agent implementation or not
-		* See if we want to allow services to supply functions to agents for using the service
-				(would be cute and pretty I guess, but would it be practical? => work it out in a branch)
-
-*/
 
 /**
  *
@@ -61,35 +45,21 @@ var EventEmitter2 = require('eventemitter2').EventEmitter2;
 module.exports = Eve; //do we actually want to export all of Eve or just some interface?
 
 
-var messages = new EventEmitter2({
-	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
-	newListener: true, 			// if you want to emit the newListener event set to true.
-	maxListeners: 1, 			//max listeners that can be assigned to an event, default 10.
-	wildcard: false 			// use+ wildcards.
-});
-
-// do we need topics at all? Yes we do, extremely convenient
-// However, how do we want to implement them? on top of normal messages with special topic agents, or using a second eventemitter?
-//    For something that we want to support out of the box, lets just use a second eventemitter: faster
-// Future: lets see if we can make both messages and topics into optional services
-// Also, note that topic works only locally
+// TODO: push topics into optional service and find some way to make agents use it
 var topics = new EventEmitter2({
 	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
 	newListener: true, 			// if you want to emit the newListener event set to true.
 	maxListeners: 10000,		// max listeners that can be assigned to an event, default 10.
 	wildcard: true 				// use+ wildcards.
 });
-//Check: hrm, actually, these 'topics' may be a bit dangerous as the event may be changed by one of the listeners? (or not?)
-//but this is fixed with Object.freeze() 
-
-
 
 // the default settings
 var defaultOptions = {
-	services : { httpServer: {port:1337, etc:0} }
+	//services : { localTransport: {}, httpTransport: {port:1337, etc:0} }
+	services : { localTransport: {} }
 };
 
-// differences between services and agents:
+// My opinion on differences between services and agents:
 // Services should be able to touch the Eve internals, agents shouldnt. 
 // Also, services are intended for use by agents within this server, while agents are intended to be contacted by anyone
 
@@ -100,6 +70,11 @@ var services = {};
 // the array that will hold all the agents
 // note that the entries in this array are only used for server business (listing agents, removing them, etc)
 var agentArray = [];
+
+var addresses = {};		// agent addresses are registered in here
+var transports = {}; 	// transport services are registered in here
+
+// TODO: a way to associate the agent in the agentarray with its registered addresses
 
 function Eve(options) {
 	
@@ -114,15 +89,46 @@ function Eve(options) {
 	//TODO: allow for multiple types/names to be registered at once
 	this.on = function(type, name, callback) {
 		var address = type + "://" + name; 
-		//if (messages.listeners(address).length > 0) return false; //hrm do this better (?), keep a list of addresses (?)
-		messages.on(address, callback);
+	
+		if (typeof addresses[address] == "undefined") {
+			addresses[address] = callback;
+		} else {
+			// return error or something
+		}
 	};
 
-	//sending a message
-	this.sendMessage = function(to, RPC, callback) {
-		var type = to.substr(0,to.indexOf(':'));
-		messages.emit(type, to, RPC, callback); //callback may be function or address (?)
+	this.registerTransport = function(name, callback) {
+		if (typeof transports[name] == "undefined") {
+			transports[name] = callback;
+		} else {
+			//give warning or soemthing
+		}
 	};
+
+	this.incomingMessage = function(to, message, callback) {
+		var destination = addresses[to];
+		if (typeof destination == "function") { //TODO make this check optional
+			// TODO: possibly include a try and insert a tracking message between the actual callback and the forwarded callback
+			//        also, keep track of callbacks to prevent memory leaks in case an agent holds on to callbacks (including their closure, the originating agent) forever
+			destination(message, callback);
+		} else {
+			// TODO possibly give a warning
+		}
+
+	}
+
+	this.outgoingMessage = function(to, message, callback) {
+		var type = to.substr(0,to.indexOf(':'));
+		var transport = transports[type];
+		if (typeof transport == "function") {
+			// TODO: possibly insert a try here and a tracking message, possibly keep track of callbacks (although we may count on transports not hogging callbacks)
+			transport(to, message, callback);		
+		} else {
+			// TODO possibly give a warning
+		}
+
+	}
+
 
 	// subscribe to a topic	
 	this.subscribe = function(topic, callback) {
@@ -140,6 +146,20 @@ function Eve(options) {
 	}
 
 
+	// for integration with external server, eg express
+	this.inbound = function(req, res, callback) {
+		var params = {'json': req.body, 'uri':req.url};
+		this.incomingMessage(params.uri, params.json, callback);
+	};
+
+	this.inboundFromExpress = function(req, res) {
+		this.inbound(req, res, function(reply) {
+			res.writeHead(200, {'Content-Type': 'application/json'});
+        	res.end(value);  
+		})
+	}
+
+
 	/*
 	 *	Service management functions
 	 */
@@ -150,7 +170,7 @@ function Eve(options) {
 		for (var service in services) {
 			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
 			var Service = require(filename);
-			services[service] = new Service(messages, this, options.services[service]);
+			services[service] = new Service(this, options.services[service]);
 
 			//alternative without constructors:
 			//this.services[service] = require(filename);
@@ -187,10 +207,10 @@ function Eve(options) {
 					if (typeof agents[agent].options === "undefined") agents[agent].options = {};
 					//agents[agent].options.instanceNumber = agents[agent].options.instanceNumber || instanceNumber;
 					agents[agent].options.instanceNumber = instanceNumber; //NB instanceNumber is a special option!
-					agentArray.push(new AgentConstructor(this.on, this.sendMessage, this.subscribe, this.publish, filename, agents[agent].options));
+					agentArray.push(new AgentConstructor(this.on, this.outgoingMessage, this.subscribe, this.publish, filename, agents[agent].options));
 				}
 			} else {
-				agentArray.push(new AgentConstructor(this.on, this.sendMessage, this.subscribe, this.publish, filename, agents[agent].options));
+				agentArray.push(new AgentConstructor(this.on, this.outgoingMessage, this.subscribe, this.publish, filename, agents[agent].options));
 			}
 		}
 		
@@ -227,76 +247,12 @@ function Eve(options) {
 
 
 	
+
 	//services that we should have available: undeliveredwarnings, addressbook?
 		//remotemanagementagent (hrm this is not a service actually), webgui / express server (instead of http server?)
 
-
-	/* this is one of the ways we could do express integration (and I think the best way). Export this function (even better would be to export it from a "plugin"!)
-	
-	this.incomingFromExpress = function(req, res) {
-		var params = {'json': req.body, 'uri':req.url};
-		
-	}
-
-	//old
-	//to handle requests that are coming in from outside (this is what you'ld call from express)
-	eve.incomingRequest = function(req, res) {  //req.body should contain the parsed JSON RPC message, req.url the uri as used in the agentname, eg, /agents/agenttype/nr
-
-	var params = {'json': JSON.stringify(req.body), 'uri':req.url};
-	eve.requestRelayPromise(params)
-	.then( function(value) {
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(value);  
-	}, function(err) {  //assemble the error message based on rejected promise and request
-		res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(JSON.stringify({id:req.body.id, result:null, error:err}));
-		//TODO perhaps send an additional warning in case 'id' is undefined
-	}).done();
-
-	}
-
-	
-	*/
-
-	
-
 }
 
 
-
-
-/*
-var eve = {};  // initialize namespace 
-
-var http = require('http'),
-    url = require('url'),
-	request = require('request'),
-	Q = require('q'),
-	storage = require('node-persist'), 
-	Threads = require('webworker-threads'); //webworker threads is better than TAGG ´cause this one lets you do importScripts
-
-var eve = {};  // initialize namespace 
-eve.location = {href: undefined, host: undefined, port: undefined} //will contain server location like "http://host:port"
-eve.agentList = {}; //this object will hold all agents
-*/
-
-/**
- *
- * functions for handling incoming RPC messages 
- *
- */
-
-// route a request to the right location
-/*
-eve.requestRelayPromise = function (params) { 
-
-	if (params.uri in eve.agentList) {
-		return eve.agentList[params.uri].requestDeliveryPromise(params.json);
-	} else {
-		return Q.reject("Agent " + params.uri + " does not exist here at " + eve.location.href + "!");
-	}
-
-}
-*/
 
 

@@ -1,8 +1,8 @@
 var http = require('http'),
-    url = require('url');
+    url = require('url'),
+	request = require('request');
 
-module.exports = HttpServer;
-
+module.exports = HttpTransport;
 
 	/**
 	 * Start a server handling the HTTP JSON RPC requests
@@ -11,8 +11,25 @@ module.exports = HttpServer;
 	 */
 
 
-function HttpServer(messages, eve, options) {
+function HttpTransport(eve, options) {
 	
+	options = options || {};
+
+
+	// for outbound requests, the request module
+	
+	eve.registerTransport('http', function(to, msg, callback) {
+		//console.log("doing http request to " + destination);
+		request({uri: to, method: 'POST', json: msg}, function(error, response, body) {
+			// do we want to reply something when an error happened?
+			callback(body); 
+		});
+
+	});
+
+
+	// for inbound requests, a http server
+
     http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
 		var prefix = pathname.split('/')[1];
@@ -23,23 +40,16 @@ function HttpServer(messages, eve, options) {
 		    req.on("data", function(chunk) { data += chunk; });
 
 		    req.on("end", function() {
-		        
 
 				try {
 					var parsedRPC = JSON.parse(data);
 					var eventName = "http." + pathname;
 
-					messages.emit("http:/" + req.url, parsedRPC, function(reply) {
+					eve.incomingMessage("http:/" + req.url, parsedRPC, function(reply) {
 						res.writeHead(200, {'Content-Type': 'application/json'});
 		            	res.end(JSON.stringify(reply));
 					});
-
-					//alternative is just to send a "message delivered" reply and leave it up to the agent to see 
-					// whether a message should be answered or not
-					//Actually, as it is now is better, agent decides whether to reply meaningful or just with "delivered"
-					//however, JSON RPC notification dont need an answer at all
-					//TODO: check whether we got a notification or something that requires an answer
-			
+	
 				} catch(err) { //probably message couldnt be parsed
 					res.writeHead(200, {'Content-Type': 'application/json'});
 		            res.end(JSON.stringify({id:null, result:null, error:"Unkown error, are you sure you sent a valid JSON RPC? " + err}));
