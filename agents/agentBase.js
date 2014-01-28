@@ -1,6 +1,6 @@
 module.exports = AgentBase;
 
-function AgentBase(on, send, sub, pub, filename, options) {
+function AgentBase(on, send, sub, pub, filename, options, serviceFunctions) {
 
 	// initializing some fields that may be useful
 	this.filename = filename;
@@ -12,6 +12,11 @@ function AgentBase(on, send, sub, pub, filename, options) {
 	this.send = send;
 	this.publish = pub;
 	
+	if (options.instanceNumber == 0) {
+		console.log("jrm," + JSON.stringify(serviceFunctions.publish) );
+		serviceFunctions.publish("ha", {ha:1});
+	}
+
 	//wrapper functions to "fix" 'this' keyword in agent callbacks.. convenient, but do we actually really want it? 
 	var that = this;	
 

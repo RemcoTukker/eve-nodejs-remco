@@ -48,7 +48,7 @@ if (singlePrototype) {
 
 var eveOptions = {
 	//services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
-	services: { httpTransport: {port:PORT, host:HOST, etc:0}, localTransport: {} },
+	services: { httpTransport: {port:PORT, host:HOST, etc:0}, localTransport: {}, topics: {} },
 	agents: lifeAgents
 } 
 
@@ -57,6 +57,8 @@ var myEve = new Eve(eveOptions);
 console.log("starting game of life with gridsize " + gridsize + " for " + steps + " timesteps" );
 var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps;
 console.log("involving " + nrRPCs + " RPCs");
+
+myEve.useServiceFunction('publish', 'service/eveserver', {content:"start"});
 
 // give start sign after a slight timeout to make sure agents are instantiated (TODO: add "all instantiated" event)
 setTimeout(function() {myEve.publish("service/eveserver", {content:"start"}); console.time('run'); }, 1000);
