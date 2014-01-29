@@ -44,7 +44,6 @@ function P2P(eve, options, addServiceFunction) {
 		var address = type + "://" + name;
 		if (typeof addresses[address] == "undefined") {
 			addresses[address] = {pointer: callback, owner: this.owner.name};
-			console.log(this.owner.name);
 		} else {
 			// return error or something
 		}

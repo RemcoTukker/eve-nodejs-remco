@@ -30,23 +30,23 @@ var gridsize = 3;
 var steps = 10;
 
 //using a single agent prototype: less memory, but slower   vs    using separate prototype for each agent: faster, but more memory
-var singlePrototype = false; 
+var singlePrototype = true; 
 
-//agents communicate over local or http transport
+//agents communicate over local or http transport (NB: http is very slow, tune down gridsize and steps)
 var transport = "local";
 
-//myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style
+//myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
 var file = "myAgent2.js"; 
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
 
 if (singlePrototype) {
-	lifeAgents = {filename: file, number: gridsize*gridsize, options: {maxtimesteps: steps, grid: gridsize} };
+	lifeAgents = {filename: file, number: gridsize*gridsize, options: {maxtimesteps: steps, grid: gridsize, protocol: transport} };
 } else {
 	for (var i = 0; i < gridsize*gridsize; i++) {
-		var name = "agent" + i;
-		lifeAgents[name] = {filename: file, options: {instanceNumber: i, maxtimesteps: steps, grid: gridsize} };
+		var name = "lifeAgent/" + i;
+		lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport} };
 	}
 }
 

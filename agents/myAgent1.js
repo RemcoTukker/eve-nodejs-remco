@@ -12,7 +12,8 @@ myAgent.init = function() {
 
 	// initialization stuff
 	var timestep = 0;
-	var n = this.options.instanceNumber;
+	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("/") + 1));
+	var namePrefix = this.agentName.substring(0, this.agentName.lastIndexOf("/"));
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var notifications = [];
@@ -36,13 +37,21 @@ myAgent.init = function() {
 	}
 	
 	var send = this.send;
+	var transport = this.options.protocol;	
+
 	// this is the function that we will use to send out the RPCs to inform the other cells of our state
 	var broadcast = function(curtimestep, curliving) {
 		for (var i = 0; i < neighbours.length; i++) {
-			//send("http://127.0.0.1:1337/tests/myAgent/" + neighbours[i], 
-			send("local://tests/myAgent/" + neighbours[i], 
-					{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
-					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+			if (transport == "local") {
+				send("local://" + namePrefix + "/" + neighbours[i], 
+						{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
+						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+
+			} else if (transport == "http") {
+				send("http://127.0.0.1:1337/" + namePrefix + "/" + neighbours[i], 
+						{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
+						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+			}
 		}
 	} 
 

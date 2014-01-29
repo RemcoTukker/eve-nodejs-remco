@@ -11,7 +11,8 @@ myAgent.init = function() {
 
 	// initialization stuff
 	var timestep = 0;
-	var n = this.options.instanceNumber;
+	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("/") + 1));
+	var namePrefix = this.agentName.substring(0, this.agentName.lastIndexOf("/"));
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var notifications = [];
@@ -36,6 +37,7 @@ myAgent.init = function() {
 	
 	// store stuff for future reference
 	this.n = n;
+	this.namePrefix = namePrefix;
 	this.neighbours = neighbours;
 	this.notifications = notifications;
 	this.result = result;
@@ -48,7 +50,6 @@ myAgent.init = function() {
 		if (message.content == "start")	this.broadcast(this.timestep, this.living);
 	});
 
-
 }
 
 
@@ -56,10 +57,16 @@ myAgent.init = function() {
 myAgent.broadcast = function(curtimestep, curliving) {
 	//console.log("sending sometin:" + curtimestep);
 	for (var i = 0; i < this.neighbours.length; i++) {
-		//send("http://127.0.0.1:1337/tests/myAgent/" + neighbours[i], 
-		this.send("local://tests/myAgent/" + this.neighbours[i], 
-				{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:this.n} }, 
-				function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+		if (this.options.protocol == "local") {
+			this.send("local://" + this.namePrefix + "/" + this.neighbours[i], 
+					{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:this.n} }, 
+					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+
+		} else if (this.options.protocol == "http") {
+			this.send("http://127.0.0.1:1337/" + this.namePrefix + "/" + this.neighbours[i], 
+					{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:this.n} }, 
+					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+		}
 	}
 } 
 

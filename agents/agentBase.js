@@ -1,9 +1,10 @@
 module.exports = AgentBase;
 
-function AgentBase(filename, options, serviceFunctions) {
+function AgentBase(agentName, filename, options, serviceFunctions) {
 
 	// initializing some fields that may be useful
 	this.filename = filename;
+	this.agentName = agentName;
 	this.options = options;
 	this.RPCfunctions = Object.create(AgentBase.prototype.RPCfunctions);
 			// make sure we have our own RPCfunctions object, in case we dynamically want to add functions, 
@@ -53,8 +54,8 @@ function AgentBase(filename, options, serviceFunctions) {
 
 	//register some addresses
 	//TODO: fix this better! Maybe use the names that the user supplies?
-	this.registerAddressForRPCs('local', 'tests/myAgent/' + options.instanceNumber);
-	this.registerAddressForRPCs('http', 'tests/myAgent/' + options.instanceNumber);
+	this.registerAddressForRPCs('local', agentName); // 'tests/myAgent/' + options.instanceNumber);
+	this.registerAddressForRPCs('http', agentName);  //'tests/myAgent/' + options.instanceNumber);
 
 	//let the user defined stuff happen!
 	this.init();

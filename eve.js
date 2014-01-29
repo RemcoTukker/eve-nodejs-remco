@@ -84,6 +84,7 @@ function Eve(options) {
 
 	// Starting agents
 	// TODO complete proper checks and warnings.
+	// TODO get rid of instanceNumber!!
 	this.addAgents = function(agentsObject) { 
 		// in case the user specifies only one agent, embed it in a superobject
 		if ((typeof agentsObject.filename != "undefined") && (typeof agentsObject.filename.filename === "undefined")) {
@@ -103,26 +104,32 @@ function Eve(options) {
 			// check if the user wants many instances of agents from one prototype
 			if (typeof agentsObject[agent].number != "undefined") {
 				for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { // make this 0-based or 1-based?
-					if (typeof agentsObject[agent].options === "undefined") agentsObject[agent].options = {};
-					//agents[agent].options.instanceNumber = agents[agent].options.instanceNumber || instanceNumber;
-					agentsObject[agent].options.instanceNumber = instanceNumber; //NB instanceNumber is a special option!
+
 					var agentName = agent + "/" + instanceNumber;
+
 					if (typeof agents[agentName] != "undefined") {
 						console.log("Error, agent name " + agentName + " is already in use; please choose another name.");
 					}
+
 					var ownServiceFunctions = Object.create(serviceFunctions);
-					ownServiceFunctions.owner = {name: agentName}; //TODO: freeze this
+					ownServiceFunctions.owner = {name: agentName}; //TODO: freeze this 
+					Object.freeze(ownServiceFunctions);
+					Object.freeze(ownServiceFunctions.owner);
 
-					console.log(JSON.stringify(ownServiceFunctions.subscribe));
-
-					agents[agentName] = new AgentConstructor(filename, agentsObject[agent].options, ownServiceFunctions);				
+					agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
 				}
 			} else { 
 
+				if (typeof agents[agent] != "undefined") {
+					console.log("Error, agent name " + agent + " is already in use; please choose another name.");
+				}
+
 				var ownServiceFunctions = Object.create(serviceFunctions);
 				ownServiceFunctions.owner = {name: agent}; //TODO: freeze this
+				Object.freeze(ownServiceFunctions);
+				Object.freeze(ownServiceFunctions.owner);
 
-				agents[agent] = new AgentConstructor(filename, agentsObject[agent].options, ownServiceFunctions);				
+				agents[agent] = new AgentConstructor(agent, filename, agentsObject[agent].options, ownServiceFunctions);				
 			}
 		}
 		
