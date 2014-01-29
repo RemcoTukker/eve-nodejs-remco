@@ -46,6 +46,7 @@ function AgentBase(agentName, filename, options, serviceFunctions) {
 
 	this.registerAddressForRPCs = function(protocol, address) {
 		this.on(protocol, address, function(parsedRPC, callback) {
+				//TODO: keep track of ID, either insert it in intermediate callback or pass it along to RPC function
 			this.RPCfunctions[parsedRPC.method].call(this, parsedRPC.params, callback);
 				//We need call or apply here, 'cause otherwise the RPCfunctions object will be the "this"
 				// maybe we could also use bind @on, to make this prettier
@@ -53,10 +54,9 @@ function AgentBase(agentName, filename, options, serviceFunctions) {
 	}
 
 	//register some addresses
-	//TODO: fix this better! Maybe use the names that the user supplies?
-	this.registerAddressForRPCs('local', agentName); // 'tests/myAgent/' + options.instanceNumber);
-	this.registerAddressForRPCs('http', agentName);  //'tests/myAgent/' + options.instanceNumber);
-
+	this.registerAddressForRPCs('local', agentName); 
+	this.registerAddressForRPCs('http', agentName);  
+	
 	//let the user defined stuff happen!
 	this.init();
 }

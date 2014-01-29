@@ -15,7 +15,10 @@ function incomingMessage(destination, message, callback) {
 		//        also, keep track of callbacks to prevent memory leaks in case an agent holds on to callbacks (including their closure, the originating agent) forever
 		to.pointer(message, callback); // we assume that the object at addresses[destination] has a pointer field of type function; TODO ensure at registering callback
 	} else {
+		console.log("drain " + destination); 
 		// TODO possibly give a warning
+
+		//TODO: make sure that the transport can actually send something back (now http server just keeps hanging on, only times out after 2 minutes)
 	}
 
 }
@@ -44,6 +47,7 @@ function P2P(eve, options, addServiceFunction, addManagementFunction) {
 		var address = type + "://" + name;
 		if (typeof addresses[address] == "undefined") {
 			addresses[address] = {pointer: callback, owner: this.owner.name};
+			console.log("registered " + address + " for " + this.owner.name);
 		} else {
 			// return error or something
 		}
@@ -55,10 +59,11 @@ function P2P(eve, options, addServiceFunction, addManagementFunction) {
 	});
 
 	addManagementFunction('incomingFromExpress', function(req, res) {
-		var params = {'json': req.body, 'uri':req.url};
-		incomingMessage(params.uri, params.json, function(reply) {
+		console.log("got request" + req.url + req.body);
+		console.log(" " + req.body.id + req.body.method + req.body.params);
+		incomingMessage("http:/" + req.url, req.body, function(reply) {
 			res.writeHead(200, {'Content-Type': 'application/json'});
-        	res.end(value);  
+        	res.end(JSON.stringify(reply) );  
 		});
 	});
 
