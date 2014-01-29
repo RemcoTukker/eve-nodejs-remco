@@ -15,6 +15,6 @@ USAGE
 
 	download
 	npm install
-	node tests/server
+	node testLife/server
 
 	This will run a game of life of which the starting parameters and setup of eve is done in tests/server and which uses the agents in the agents folder. Included services are a local transport and a http transport (which is rather slow for some reason). Codebase is small and should be easy to digest.
