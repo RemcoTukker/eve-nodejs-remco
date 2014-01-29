@@ -21,7 +21,7 @@ function incomingMessage(destination, message, callback) {
 }
 
 
-function P2P(eve, options, addServiceFunction) {
+function P2P(eve, options, addServiceFunction, addManagementFunction) {
 
 	options = options || {}; //TODO: add some default config with local transport
 	
@@ -49,7 +49,24 @@ function P2P(eve, options, addServiceFunction) {
 		}
 	});
 
-	// add the interface from the transports
+	// management functions for eve users
+	addManagementFunction('incoming', function(destination, message, callback) {
+		incomingMessage(destination, message, callback);		
+	});
+
+	addManagementFunction('incomingFromExpress', function(req, res) {
+		var params = {'json': req.body, 'uri':req.url};
+		incomingMessage(params.uri, params.json, function(reply) {
+			res.writeHead(200, {'Content-Type': 'application/json'});
+        	res.end(value);  
+		});
+	});
+
+
+	// TODO: management functions for dynamically adding and removing transports, as well as shutting down this service
+
+
+	// add the transports from options
 	var desiredTransports = options.transports;
 	for (var transport in desiredTransports) {
 		var filename = "./" + transport + ".js";  //NOTE: this is case-sensitive!

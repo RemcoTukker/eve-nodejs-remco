@@ -5,7 +5,7 @@ var EventEmitter2 = require('eventemitter2').EventEmitter2;
 module.exports = Topics;
 
 
-function Topics(eve, options, addServiceFunction) {
+function Topics(eve, options, addServiceFunction, addManagementFunction) {
 
 	var topics = new EventEmitter2({
 		//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.

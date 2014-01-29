@@ -49,11 +49,18 @@ var serviceFunctions = {owner: {name:"Eve Owner"}};
 // this is the prototype, all agents will receive their own descendant, with the owner field set to their name
 // only the holder of the eve object can access these functions on the prototype itself, hence "Eve Owner"
 // TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. 
- 
 var addServiceFunction = function(name, callback) {
+	// TODO: check if we dont overwrite anything
 	serviceFunctions[name] = callback;
 }
 
+
+// object to hold references to management functions that eve owner can use
+var managementFunctions = {};
+var addManagementFunction = function(name, callback) {
+	// TODO: check if we dont overwrite anything
+	managementFunctions[name] = callback;	
+}
 
 
 function Eve(options) {
@@ -71,7 +78,7 @@ function Eve(options) {
 		for (var service in services) {
 			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
 			var Service = require(filename);
-			services[service] = new Service(this, options.services[service], addServiceFunction);
+			services[service] = new Service(this, options.services[service], addServiceFunction, addManagementFunction);
 		}
 	};
 
@@ -84,7 +91,6 @@ function Eve(options) {
 
 	// Starting agents
 	// TODO complete proper checks and warnings.
-	// TODO get rid of instanceNumber!!
 	this.addAgents = function(agentsObject) { 
 		// in case the user specifies only one agent, embed it in a superobject
 		if ((typeof agentsObject.filename != "undefined") && (typeof agentsObject.filename.filename === "undefined")) {
@@ -146,31 +152,19 @@ function Eve(options) {
 	this.serverStatus = function() {};
 	
 	// to let the owner of the Eve object interfere with internal business
+	// TODO: do we even want this? maybe only let them use the management functions
 	this.useServiceFunction = function() { 	// 1st: name of function to call, rest: parameters for function to call
 		var shift = [].shift;   			// borrowing shift from array object
 		var name = shift.apply(arguments); 	// this removes the first element from the arguments
 		serviceFunctions[name].apply(serviceFunctions, arguments); // call the function
 	};
-
-
-
-//TODO: make this work again in some way
-/*
-	// for integration with external server, eg express
-	this.inbound = function(req, res, callback) {
-		var params = {'json': req.body, 'uri':req.url};
-		this.incomingMessage(params.uri, params.json, callback);
-	};
-
-	this.inboundFromExpress = function(req, res) {
-		this.inbound(req, res, function(reply) {
-			res.writeHead(200, {'Content-Type': 'application/json'});
-        	res.end(value);  
-		})
+	
+	// to let the owner of the Eve object interfere with internal business
+	this.useManagementFunction = function() {
+		var shift = [].shift;   			// borrowing shift from array object
+		var name = shift.apply(arguments); 	// this removes the first element from the arguments
+		managementFunctions[name].apply(managementFunctions, arguments); // call the function
 	}
-*/
-
-
 
 	/*
 	 * 	Constructor / Init work
