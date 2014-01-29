@@ -40,18 +40,9 @@ move stuff down to c++ ? (Peet?)
  */
 
 // the event emitter that provides communication within this Eve environment
-var EventEmitter2 = require('eventemitter2').EventEmitter2;
+//var EventEmitter2 = require('eventemitter2').EventEmitter2;
 
 module.exports = Eve; //do we actually want to export all of Eve or just some interface?
-
-
-// TODO: push topics into optional service and find some way to make agents use it
-var topics = new EventEmitter2({
-	//delimiter: '::',  		// the delimiter used to segment namespaces, defaults to `.`.
-	newListener: true, 			// if you want to emit the newListener event set to true.
-	maxListeners: 10000,		// max listeners that can be assigned to an event, default 10.
-	wildcard: true 				// use+ wildcards.
-});
 
 // the default settings
 var defaultOptions = {
@@ -71,21 +62,21 @@ var services = {};
 // note that the entries in this array are only used for server business (listing agents, removing them, etc)
 //var agentArray = [];
 var agents = {};
-var addresses = {};		// agent addresses are registered in here
-var transports = {}; 	// transport services are registered in here
+//var addresses = {};		// agent addresses are registered in here
+//var transports = {}; 	// transport services are registered in here
 
 
 var serviceFunctions = {owner: {name:"Eve Owner"}}; 
-// this is the prototype, all agents will receive their own copy with service functions in it
-// only the holder of the eve object can access these functions on this object itself
-// TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. or maybe just leave that up to the agents
+// this is the prototype, all agents will receive their own descendant, with the owner field set to their name
+// only the holder of the eve object can access these functions on the prototype itself, hence "Eve Owner"
+// TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. 
  
 var addServiceFunction = function(name, callback) {
 	//TODO check whether nothing is overwritten
-	console.log("added " + name);
-	console.log(callback);
+	//console.log("added " + name);
+	//console.log(callback);
 	serviceFunctions[name] = callback;
-	console.log(JSON.stringify(serviceFunctions))
+	//console.log(JSON.stringify(serviceFunctions))
 }
 
 
@@ -108,7 +99,7 @@ function Eve(options) {
 
 	// registering for incoming messages	
 	//TODO: allow for multiple types/names to be registered at once
-
+/*
 	this.on = function(origin, type, name, callback) {
 		var address = type + "://" + name; 
 		console.log(origin, address);
@@ -151,24 +142,10 @@ function Eve(options) {
 		}
 
 	}
+*/
 
-
-	// subscribe to a topic	
-	this.subscribe = function(topic, callback) {
-		topics.on(topic, callback);
-	}
-
-	//publish on a topic
-	this.publish = function(topic, message) {
-		if (typeof message != "object") {
-			console.log("Publishing failed: tried to publish a non-object");
-			return;
-		}
-		Object.freeze(message); //make sure the subscribers dont change the message, would turn out very messy
-		topics.emit(topic, message);
-	}
-
-
+//TODO: make this work again in some way
+/*
 	// for integration with external server, eg express
 	this.inbound = function(req, res, callback) {
 		var params = {'json': req.body, 'uri':req.url};
@@ -181,7 +158,7 @@ function Eve(options) {
         	res.end(value);  
 		})
 	}
-
+*/
 
 	/*
 	 *	Service management functions
@@ -243,11 +220,15 @@ function Eve(options) {
 
 					console.log(JSON.stringify(ownServiceFunctions.subscribe));
 
-					agents[agentName] = new AgentConstructor(this.on.bind(undefined, agentName), this.outgoingMessage, this.subscribe, this.publish, filename, agentsObject[agent].options, ownServiceFunctions);				
+					agents[agentName] = new AgentConstructor(filename, agentsObject[agent].options, ownServiceFunctions);				
 					//agentArray.push(new AgentConstructor(this.on.bind(this, "ha"), this.outgoingMessage, this.subscribe, this.publish, filename, agentsObject[agent].options));
 				}
 			} else { //TODO: make this correspond to above! eg ownServiceFunctions
-				agents[agent] = new AgentConstructor(this.on.bind(undefined, agent), this.outgoingMessage, this.subscribe, this.publish, filename, agentsObject[agent].options, ownServiceFunctions);				
+
+				var ownServiceFunctions = Object.create(serviceFunctions);
+				ownServiceFunctions.owner = {name: agent}; //TODO: freeze this
+
+				agents[agent] = new AgentConstructor(filename, agentsObject[agent].options, ownServiceFunctions);				
 				//agentArray.push(new AgentConstructor(this.on.bind(this, "ha"), this.outgoingMessage, this.subscribe, this.publish, filename, agentsObject[agent].options));
 			}
 		}

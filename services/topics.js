@@ -24,7 +24,6 @@ function Topics(eve, options, addServiceFunction) {
 		Object.freeze(message); //make sure the subscribers dont change the message, would turn out very messy
 		topics.emit(topic, message);
 		
-		console.log("published msg! " + JSON.stringify(message) + " to " + topic + " from " + this.owner.name);
 	});
 
 	addServiceFunction('subscribe', function(topic, callback) {
