@@ -11,25 +11,21 @@ module.exports = HttpTransport;
 	 */
 
 
-function HttpTransport(eve, options) {
+function HttpTransport(incoming, options) {
 	
-	options = options || {};
+	options = options || {}; //TODO: add default config
 
+	this.name = "http";
 
 	// for outbound requests, the request module
-	
-	eve.registerTransport('http', function(to, msg, callback) {
-		//console.log("doing http request to " + destination);
-		request({uri: to, method: 'POST', json: msg}, function(error, response, body) {
-			// do we want to reply something when an error happened?
+	this.outgoing = function(destination, message, callback) {
+		request({uri: destination, method: 'POST', json: message}, function(error, response, body) {
+			//TODO: do we want to reply something when an error happened? Or just fail silently?
 			callback(body); 
 		});
-
-	});
-
+	}
 
 	// for inbound requests, a http server
-
     http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
 		var prefix = pathname.split('/')[1];
@@ -45,7 +41,7 @@ function HttpTransport(eve, options) {
 					var parsedRPC = JSON.parse(data);
 					var eventName = "http." + pathname;
 
-					eve.incomingMessage("http:/" + req.url, parsedRPC, function(reply) {
+					incoming("http:/" + req.url, parsedRPC, function(reply) {
 						res.writeHead(200, {'Content-Type': 'application/json'});
 		            	res.end(JSON.stringify(reply));
 					});

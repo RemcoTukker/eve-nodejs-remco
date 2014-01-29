@@ -21,20 +21,24 @@ Agent functionality:
 */
 
 
+// http p2p transport settings
 var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
+// game of life parameters for agents
 var gridsize = 3;
 var steps = 10;
-//using a single prototype: less memory, but slower
-//using separate prototype for each agent: faster, but more memory
+
+//using a single agent prototype: less memory, but slower   vs    using separate prototype for each agent: faster, but more memory
 var singlePrototype = false; 
+
+//agents communicate over local or http transport
+var transport = "local";
+
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style
-//myAgent1 seems faster 
-var file = "myAgent1.js"; 
+var file = "myAgent2.js"; 
 
-var Eve                   = require('../eve.js');
-
+// setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
 
 if (singlePrototype) {
@@ -46,25 +50,22 @@ if (singlePrototype) {
 	}
 }
 
+// setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {
-	//services: { httpServer: {port:PORT, host:HOST, etc:0}, httpRequests: {}, localRequests: {} }, //http requests fails in strict mode
-	//services: { httpTransport: {port:PORT, host:HOST, etc:0}, localTransport: {}, topics: {}, p2p: {} },
-	services: { topics: {}, p2p: {} },
+	services: { topics: {}, p2p: {transports: {localTransport: {}, httpTransport: {port: PORT, host: HOST} } } },
 	agents: lifeAgents
 } 
 
+// starting Eve
+var Eve = require('../eve.js');
 var myEve = new Eve(eveOptions);
 
+// give user some info
 console.log("starting game of life with gridsize " + gridsize + " for " + steps + " timesteps" );
 var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps;
 console.log("involving " + nrRPCs + " RPCs");
 
-//myEve.useServiceFunction('publish', 'service/eveserver', {content:"start"});
-
-// give start sign after a slight timeout to make sure agents are instantiated (TODO: add "all instantiated" event)
-//setTimeout(function() {myEve.publish("service/eveserver", {content:"start"}); console.time('run'); }, 1000);
-
+// after a second, give the start signal using the topics service
 setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, 1000);
-
 
 

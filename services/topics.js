@@ -32,8 +32,6 @@ function Topics(eve, options, addServiceFunction) {
 
 	});
 
-
-
 }
 
 

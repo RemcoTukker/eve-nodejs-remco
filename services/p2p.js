@@ -23,10 +23,8 @@ function incomingMessage(destination, message, callback) {
 
 function P2P(eve, options, addServiceFunction) {
 
-	//options = options || {}; //TODO: add some default config with local transport
-
-	options = {transports: {localTransport2: {} } };
-
+	options = options || {}; //TODO: add some default config with local transport
+	
 	// interface to agents
 
 	addServiceFunction('send', function(destination, message, callback) {
@@ -56,14 +54,9 @@ function P2P(eve, options, addServiceFunction) {
 	var desiredTransports = options.transports;
 	for (var transport in desiredTransports) {
 		var filename = "./" + transport + ".js";  //NOTE: this is case-sensitive!
-		//console.log(transport);
-		//console.log(desiredTransports[transport]);
 		var Transport = require(filename);
 		var transportObject = new Transport(incomingMessage, desiredTransports[transport]);
 		transports[transportObject.name] = transportObject;
-		//console.log(transportObject.name);
-		//console.log(transports[transportObject.name]);
-
 	}
 
 }

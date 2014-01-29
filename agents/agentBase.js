@@ -7,7 +7,7 @@ function AgentBase(filename, options, serviceFunctions) {
 	this.options = options;
 	this.RPCfunctions = Object.create(AgentBase.prototype.RPCfunctions);
 			// make sure we have our own RPCfunctions object, in case we dynamically want to add functions, 
-				//maybe with closure of our own agent (such as in the init function)
+				//for example with closure of our own agent (such as in the init function)
 
 	//this.send = send;
 	this.send = function(destination, message, callback) {
@@ -18,11 +18,6 @@ function AgentBase(filename, options, serviceFunctions) {
 		serviceFunctions.publish(topic, message);
 	}
 	
-//	if (options.instanceNumber == 0) {
-//		serviceFunctions.send("local://h2a", {ha:1}, function() {} );
-//		console.log("jrm," + JSON.stringify(serviceFunctions.publish) );
-//		serviceFunctions.publish("ha", {ha:1});
-//	}
 
 	//wrapper functions to "fix" 'this' keyword in agent callbacks.. convenient, but do we actually really want it? 
 	var that = this;	
@@ -31,20 +26,12 @@ function AgentBase(filename, options, serviceFunctions) {
 		serviceFunctions.on(protocol, address, function() {
 				callback.apply(that, arguments);  // TODO: use bind here instead of apply
 		});		
-
-		//on(protocol, address, function() {
-		//	callback.apply(that, arguments);
-		//});
 	} 
 
 	this.subscribe = function(topic, callback) {
 		serviceFunctions.subscribe(topic, function() {
 			callback.apply(that, arguments);
 		});		
-
-		//sub(address, function() {
-		//	callback.apply(that, arguments);
-		//});
 	};
 
 	this.schedule = function(callback, time) {  
