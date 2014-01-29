@@ -1,0 +1,12 @@
+doctype 5
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    // we're not supporting older IE version (but we could by downgrading to jquery 1)
+    // also, we may want to get jquery from ie google instead of serving it ourselves
+    script(type='text/javascript' src='javascripts/jquery-2.0.3.min.js')
+    script(type='text/javascript').
+      var local_data =!{JSON.stringify(data)}
+  body
+    block content
