@@ -4,6 +4,8 @@
 	"description": "NodeJS platform for Eve agents",
 	"version": "0.0.3",
 	"dependencies": {
+	    "express": "3.4.6",
+	    "jade": "*",
 		"request": "latest",
 		"eventemitter2": "latest"
 	},
