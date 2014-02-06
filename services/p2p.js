@@ -19,12 +19,13 @@ function incomingMessage(destination, message, callback) {
 		// TODO possibly give a warning
 
 		//TODO: make sure that the transport can actually send something back (now http server just keeps hanging on, only times out after 2 minutes)
+		// 				probably easiest to give a return value, true or false or something, and use that to do the right thing
 	}
 
 }
 
 
-function P2P(eve, options, addServiceFunction, addManagementFunction) {
+function P2P(eve, options, addServiceFunction) {
 
 	options = options || {}; //TODO: add some default config with local transport
 	
@@ -54,19 +55,13 @@ function P2P(eve, options, addServiceFunction, addManagementFunction) {
 	});
 
 	// management functions for eve users
-	addManagementFunction('incoming', function(destination, message, callback) {
-		incomingMessage(destination, message, callback);		
-	});
-
-	addManagementFunction('incomingFromExpress', function(req, res) {
-		console.log("got request" + req.url + req.body);
-		console.log(" " + req.body.id + req.body.method + req.body.params);
+	// TODO: move this function to http requests where it belongs, and also remove optional prefix from req.url
+	eve.incomingFromExpress = function(req, res) {
 		incomingMessage("http:/" + req.url, req.body, function(reply) {
 			res.writeHead(200, {'Content-Type': 'application/json'});
         	res.end(JSON.stringify(reply) );  
 		});
-	});
-
+	}
 
 	// TODO: management functions for dynamically adding and removing transports, as well as shutting down this service
 

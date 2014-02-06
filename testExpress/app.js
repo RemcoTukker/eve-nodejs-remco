@@ -30,7 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 
 var eveOptions = {
-	services: { topics: {}, p2p: {transports: {localTransport: {}, httpRequest: {} } } },
+	services: { topics: {}, p2p: {transports: {localTransport: {}, httpRequest: {} } } }, // httpRequest 
 	agents: {filename: "mathAgent.js" }
 } 
 var eve = new Eve(eveOptions);
@@ -45,7 +45,7 @@ if ('development' == app.get('env')) {
 app.get('/', routes.index);
 app.get('/management', routes.management);
 //app.get('/users', user.list);
-app.post('/agents/*', eve.useManagementFunction.bind(undefined, 'incomingFromExpress') );
+app.post('/agents/*', eve.incomingFromExpress);
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));

@@ -26,14 +26,14 @@ var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
 // game of life parameters for agents
-var gridsize = 3;
+var gridsize = 5;
 var steps = 10;
 
 //using a single agent prototype: less memory, but slower   vs    using separate prototype for each agent: faster, but more memory
 var singlePrototype = true; 
 
 //agents communicate over local or http transport (NB: http is very slow, tune down gridsize and steps)
-var transport = "local";
+var transport = "http";
 
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
 var file = "myAgent2.js"; 

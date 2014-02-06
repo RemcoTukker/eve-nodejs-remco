@@ -55,14 +55,6 @@ var addServiceFunction = function(name, callback) {
 }
 
 
-// object to hold references to management functions that eve owner can use
-var managementFunctions = {};
-var addManagementFunction = function(name, callback) {
-	// TODO: check if we dont overwrite anything
-	managementFunctions[name] = callback;	
-}
-
-
 function Eve(options) {
 	
 	// to make sure that code doesnt fail if new is omitted
@@ -78,7 +70,7 @@ function Eve(options) {
 		for (var service in services) {
 			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
 			var Service = require(filename);
-			services[service] = new Service(this, options.services[service], addServiceFunction, addManagementFunction);
+			services[service] = new Service(this, options.services[service], addServiceFunction);
 		}
 	};
 
@@ -152,20 +144,12 @@ function Eve(options) {
 	this.serverStatus = function() {};
 	
 	// to let the owner of the Eve object interfere with internal business
-	// TODO: do we even want this? maybe only let them use the management functions
 	this.useServiceFunction = function() { 	// 1st: name of function to call, rest: parameters for function to call
 		var shift = [].shift;   			// borrowing shift from array object
 		var name = shift.apply(arguments); 	// this removes the first element from the arguments
 		serviceFunctions[name].apply(serviceFunctions, arguments); // call the function
 	};
 	
-	// to let the owner of the Eve object interfere with internal business
-	this.useManagementFunction = function() {
-		var shift = [].shift;   			// borrowing shift from array object
-		var name = shift.apply(arguments); 	// this removes the first element from the arguments
-		managementFunctions[name].apply(managementFunctions, arguments); // call the function
-	}
-
 	/*
 	 * 	Constructor / Init work
 	 */

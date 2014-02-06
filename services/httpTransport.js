@@ -25,6 +25,8 @@ function HttpTransport(incoming, options) {
 		});
 	}
 
+	http.globalAgent.maxSockets = 100; // this is good for doing many requests to localhost..
+
 	// for inbound requests, a http server
     http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
