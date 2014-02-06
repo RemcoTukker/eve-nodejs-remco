@@ -1,5 +1,4 @@
-var http = require('http'),
-    url = require('url'),
+var url = require('url'),
 	request = require('request');
 
 module.exports = HttpRequest;
@@ -11,11 +10,20 @@ module.exports = HttpRequest;
 	 */
 
 
-function HttpRequest(incoming, options) {
+function HttpRequest(incoming, options, addToEve) {
 	
 	options = options || {}; //TODO: add default config
 
 	this.name = "http";
+
+	// add a function to let an external server 
+	addToEve("incomingFromExpress", function(req, res) {
+		incoming("http:/" + req.url, req.body, function(reply) {
+			res.writeHead(200, {'Content-Type': 'application/json'});
+        	res.end(JSON.stringify(reply) );  
+		});
+	});
+
 
 	// for outbound requests, the request module
 	this.outgoing = function(destination, message, callback) {
