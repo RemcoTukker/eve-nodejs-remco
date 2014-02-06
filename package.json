@@ -1,13 +1,13 @@
 {
-	"name": "eve-nodejs-threads",
+	"name": "eve-nodejs",
 	"author": "Remco Tukker <remco almende org>",
 	"description": "NodeJS platform for Eve agents",
-	"version": "0.0.1",
+	"version": "0.0.3",
 	"dependencies": {
 		"request": "latest",
 		"eventemitter2": "latest"
 	},
  	"engines": {
-    	"node": ">=0.10"
+    	"node": "0.10.x"
   	}
 }
