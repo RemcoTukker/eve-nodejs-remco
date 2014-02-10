@@ -28,7 +28,7 @@ function HttpTransport(incoming, options) {
 	http.globalAgent.maxSockets = 100; // this is good for doing many requests to localhost..
 
 	// for inbound requests, a http server
-    http.createServer(function (req, res) {
+    var serv = http.createServer(function (req, res) {
         var pathname = url.parse(req.url).pathname;
 		var prefix = pathname.split('/')[1];
 
@@ -59,7 +59,11 @@ function HttpTransport(incoming, options) {
   		//	var html = "<p>Hello World, in case you want more functionality on webpages, simply embed eve in an express server.</p>"; 
  		//	res.end(html);
 		//}
-    }).listen(options.port, options.host);
+    });
+
+	serv.listen(options.port, options.host);
+
+
 
 	//TODO: maybe add some notification that this service is up and running
 

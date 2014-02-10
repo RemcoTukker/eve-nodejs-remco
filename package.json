@@ -7,7 +7,8 @@
 	    "express": "3.4.6",
 	    "jade": "*",
 		"request": "latest",
-		"eventemitter2": "latest"
+		"eventemitter2": "latest",
+		"socket.io": "latest"
 	},
  	"engines": {
     	"node": "0.10.x"

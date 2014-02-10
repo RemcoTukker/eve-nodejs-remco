@@ -189,6 +189,29 @@ function Eve(options) {
 	//realSetTimeout(function() {console.log("ha")}, 1000);
 
 
+	//creating a separate http server for the debug info
+	var io = require('socket.io').listen(8090);
+	
+	var debugsockets = io.of('/debug').on('connection', function(socket) {
+
+		var agentNames = [];
+		for (var key in agents) {
+			agentNames.push(key);
+		}
+
+		socket.emit('news', { agentNames: agentNames }); // emit list of agents names
+
+//		socket.on('my other event', function (data) {
+//			console.log(data);
+//		});
+
+	})
+
+	this.sendDebugData = function(data) {
+		debugsockets.emit('newData', {data: data});
+	};
+
+
 	// start optional services (Note: do this synchronously, in case order matters)	
 	this.addServices(options.services);
 	
