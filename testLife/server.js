@@ -36,7 +36,7 @@ var singlePrototype = true;
 var transport = "http";
 
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
-var file = "myAgent2.js"; 
+var file = "myAgent3.js"; 
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};

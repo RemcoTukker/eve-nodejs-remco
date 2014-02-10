@@ -50,6 +50,11 @@ var serviceFunctions = {owner: {name:"Eve Owner"}};
 // only the holder of the eve object can access these functions on the prototype itself, hence "Eve Owner"
 // TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. 
 var addServiceFunction = function(name, callback) {
+
+	// TODO: freeze the serviceFunctions object to make sure agents dont mess with it
+	//       then to change the serviceFunctions object, just make a copy, make changes, freeze it
+	//       and then update the prototype of all descendants (using a function on the prototype :-)
+
 	// TODO: check if we dont overwrite anything
 	serviceFunctions[name] = callback;
 }
@@ -81,6 +86,15 @@ function Eve(options) {
      *	Agent management functions
 	 */
 
+	// TODO: ok, do I _really_ want this? A constructor is nice and explicit, nothing will go wrong.. Maybe constructor at the core, then some extensions to tie in objects?
+	//
+	// agents can be described with a constructor and with an object
+	// constructor: function(options, utilityFunctions); with an object you have the choice of object.create (default), deep copy, or using the object  
+    // 
+	// agents will have utility functions mixed in after construction: this.send, this.on, this.sub, this.pub, ...
+    // then, the agent's init function will be called if it exists, with the options parameter
+
+
 	// Starting agents
 	// TODO complete proper checks and warnings.
 	this.addAgents = function(agentsObject) { 
@@ -99,8 +113,18 @@ function Eve(options) {
 		for (var agent in agentsObject) {
 			var filename = './agents/' + agentsObject[agent].filename; // load code, NB case sensitive
 			var AgentConstructor = require(filename); 
+
+			if (typeof agentsObject[agent].number === "undefined") agentsObject[agent].number = 0;
+			
+			//check if we have a constructor or an object
+			//if (agentCode instanceof Function) { // instantiate agent from constructor
+			//} else {  //instantiate agent from object
+			//}
+			// ok, added the objects; now its time to mix in the utility functions
+
+
 			// check if the user wants many instances of agents from one prototype
-			if (typeof agentsObject[agent].number != "undefined") {
+			//if (typeof agentsObject[agent].number != "undefined") {
 				for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { // make this 0-based or 1-based?
 
 					var agentName = agent + "/" + instanceNumber;
@@ -116,7 +140,7 @@ function Eve(options) {
 
 					agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
 				}
-			} else { 
+			/*} else {  //TODO: do we really not want this and put a number after each agent? predictable, maybe, but on the other hand, crufty
 
 				if (typeof agents[agent] != "undefined") {
 					console.log("Error, agent name " + agent + " is already in use; please choose another name.");
@@ -128,7 +152,7 @@ function Eve(options) {
 				Object.freeze(ownServiceFunctions.owner);
 
 				agents[agent] = new AgentConstructor(agent, filename, agentsObject[agent].options, ownServiceFunctions);				
-			}
+			}*/
 		}
 		
 	};
@@ -157,6 +181,13 @@ function Eve(options) {
 	// deal with parameters
 	options = options || {};
 	for (var option in defaultOptions) { if ( !(option in options) ) options[option] = defaultOptions[option]; }
+
+
+	//TODO: ok, probably I'll do something like this to prevent people from using setTimeout
+	//realSetTimeout = setTimeout;
+	//setTimeout = function(f,t) {console.log(t)};
+	//realSetTimeout(function() {console.log("ha")}, 1000);
+
 
 	// start optional services (Note: do this synchronously, in case order matters)	
 	this.addServices(options.services);
