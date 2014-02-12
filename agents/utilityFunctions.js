@@ -13,6 +13,7 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 		//this.send = send;
 		newAgent.send = function(destination, message, callback) {
 			serviceFunctions.send(destination, message, callback);
+				// TODO: keep track of callbacks for deleting agent
 		}
 		//this.publish = pub;
 		newAgent.publish = function(topic, message) {
@@ -24,22 +25,25 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 		newAgent.on = function(protocol, address, callback) {		
 			serviceFunctions.on(protocol, address, function() {
 					callback.apply(newAgent, arguments);  // TODO: use bind here instead of apply
-			});		
+			});	
+			//TODO: keep track of callbacks for deleting agent
 		} 
 
 		newAgent.subscribe = function(topic, callback) {
 			serviceFunctions.subscribe(topic, function() {
 				callback.apply(newAgent, arguments);
 			});		
+			//TODO: keep track of callbacks for deleting agent
 		};
 
+		// TODO fix this up
 		newAgent.schedule = function(callback, time) {  
 			var wrapperFunction = function() { callback.apply(newAgent) }; //TODO fix arguments here, remove first two, pass rest
 
 			if (time == 0 || (typeof time != "number")) setImmediate(wrapperFunction);
 			else setTimeOut(wrapperFunction, time);
 
-			// TODO: keep track of timeouts for deleting agent
+			// TODO: keep track of timeouts for deleting
 		};  
 
 		newAgent.registerAddressForRPCs = function(protocol, address) {

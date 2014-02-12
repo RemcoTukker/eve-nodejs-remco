@@ -1,36 +1,48 @@
 /*
+ * Copyright 2014 Remco Tukker
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+/*
 TODO:
 
-stuff to think about:
-when agent is removed, what happens with already scheduled callbacks?
-Is knowledge about using JSON RPC going to reside only with the agent or only with the server? Discuss with Ludo
-
-functionality: 
-Add a store capability to prevent unused agents from taking up resources with a db
-
-Stability: 
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 Add proper checks and warning everywhere, as well as try statements in appropriate places
-
-style and maintainability:
 prettier comments and function descriptions
 
-related work:
+Related work:
 eve frontend to use eve in an express server and couple UIs to agents
-build browser-side agent environment
 
-security (all optional):
-protect server from agents (taking processor power, changing settings, doing all kind of stuff @ require(agent), ... ) (requires special agent implementation; see my threaded agent code)
-see if we want to add some sort of authentication model (PGP?)
-
-optimization:
-move stuff down to c++ ? (Peet?)
+Stuff for version x:
+Use webworkers to protect server from agents and properly deal with setTimeout, pending callbacks, etc 
+   (use browserify to deal with requires)
+Add a store capability to prevent unused agents from taking up resources with a db
+In the same way, allow agent migration and build browser-side agent environment
+See if we want to add some sort of authentication model (PGP?)
 
 */
 
-
-
 module.exports = Eve; 
+
+// global debug output function to be used by all eve components
+global.evedebug = function(topic, message) {
+
+	console.log(topic + ": " + message);
+
+}
+
 
 // the default settings
 var defaultOptions = {
@@ -59,7 +71,6 @@ var addServiceFunction = function(name, callback) {
 	serviceFunctions[name] = callback;
 }
 
-
 function Eve(options) {
 	
 	// to make sure that code doesnt fail if new is omitted
@@ -70,7 +81,6 @@ function Eve(options) {
 	 */
 
 	//Starting services. This should be done synchronously I guess...
-	//TODO: add proper checks and warnings
 	this.addServices = function(services) {
 		for (var service in services) {
 			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
@@ -79,21 +89,15 @@ function Eve(options) {
 		}
 	};
 
-	this.removeServices = function() {};
+	this.removeServices = function() {}; //TODO: make this possible on the fly without agents crashing and so on
 	this.listServices  = function() {};
+
+
+
 
 	/*
      *	Agent management functions
 	 */
-
-	// TODO: ok, do I _really_ want this? A constructor is nice and explicit, nothing will go wrong.. Maybe constructor at the core, then some extensions to tie in objects?
-	//
-	// agents can be described with a constructor and with an object
-	// constructor: function(options, utilityFunctions); with an object you have the choice of object.create (default), deep copy, or using the object  
-    // 
-	// agents will have utility functions mixed in after construction: this.send, this.on, this.sub, this.pub, ...
-    // then, the agent's init function will be called if it exists, with the options parameter
-
 
 	// Starting agents
 	// TODO complete proper checks and warnings.
@@ -115,50 +119,40 @@ function Eve(options) {
 			var AgentConstructor = require(filename); 
 
 			if (typeof agentsObject[agent].number === "undefined") agentsObject[agent].number = 0;
-			
-			//check if we have a constructor or an object
-			//if (agentCode instanceof Function) { // instantiate agent from constructor
-			//} else {  //instantiate agent from object
-			//}
-			// ok, added the objects; now its time to mix in the utility functions
+			for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { 
 
-
-			// check if the user wants many instances of agents from one prototype
-			//if (typeof agentsObject[agent].number != "undefined") {
-				for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { // make this 0-based or 1-based?
-
+				if (agentsObject[agent].number == 0) { //TODO: see whether we actually want to keep this distinction
+					var agentName = agent;
+				} else {
 					var agentName = agent + "/" + instanceNumber;
-
-					if (typeof agents[agentName] != "undefined") {
-						console.log("Error, agent name " + agentName + " is already in use; please choose another name.");
-					}
-
-					var ownServiceFunctions = Object.create(serviceFunctions);
-					ownServiceFunctions.owner = {name: agentName}; //TODO: freeze this 
-					Object.freeze(ownServiceFunctions);
-					Object.freeze(ownServiceFunctions.owner);
-
-					agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
 				}
-			/*} else {  //TODO: do we really not want this and put a number after each agent? predictable, maybe, but on the other hand, crufty
 
-				if (typeof agents[agent] != "undefined") {
-					console.log("Error, agent name " + agent + " is already in use; please choose another name.");
+				if (typeof agents[agentName] != "undefined") {
+					console.log("Error, agent name " + agentName + " is already in use; please choose another name.");
 				}
 
 				var ownServiceFunctions = Object.create(serviceFunctions);
-				ownServiceFunctions.owner = {name: agent}; //TODO: freeze this
+				ownServiceFunctions.owner = {name: agentName};
 				Object.freeze(ownServiceFunctions);
-				Object.freeze(ownServiceFunctions.owner);
+				Object.freeze(ownServiceFunctions.owner); // to be able to identify originator of service function calls
 
-				agents[agent] = new AgentConstructor(agent, filename, agentsObject[agent].options, ownServiceFunctions);				
-			}*/
+				agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
+			}
+			
 		}
 		
 	};
 
-	this.removeAgents = function() {}; 
-	this.listAgents = function() {};
+	this.removeAgents = function() {}; // TODO: implement this.. will be painful
+	this.listAgents = function() {
+		var agentNames = [];
+		for (var key in agents) {
+			agentNames.push(key);
+		}
+		return agentNames;
+	};
+
+
 
 	/*
 	 *	Other management functions 
@@ -173,6 +167,8 @@ function Eve(options) {
 		var name = shift.apply(arguments); 	// this removes the first element from the arguments
 		serviceFunctions[name].apply(serviceFunctions, arguments); // call the function
 	};
+
+
 	
 	/*
 	 * 	Constructor / Init work
@@ -181,13 +177,6 @@ function Eve(options) {
 	// deal with parameters
 	options = options || {};
 	for (var option in defaultOptions) { if ( !(option in options) ) options[option] = defaultOptions[option]; }
-
-
-	//TODO: ok, probably I'll do something like this to prevent people from using setTimeout
-	//realSetTimeout = setTimeout;
-	//setTimeout = function(f,t) {console.log(t)};
-	//realSetTimeout(function() {console.log("ha")}, 1000);
-
 
 	//creating a separate http server for the debug info
 	var io = require('socket.io').listen(8090);
