@@ -1,4 +1,6 @@
 
+// TODO: implement topics as agents, topics as implemented here are not part of Eve
+
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 
 

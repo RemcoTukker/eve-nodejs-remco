@@ -18,10 +18,12 @@
 /*
 TODO:
 
+merge http stuff together
+add a management agent as entry point to all service/management functions
+
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 Add proper checks and warning everywhere, as well as try statements in appropriate places
 prettier comments and function descriptions
-add a management agent as entry point to all service/management functions
 
 Related work:
 eve frontend to use eve in an express server and couple UIs to agents
@@ -121,7 +123,7 @@ function Eve(options) {
 			var filename = './agents/' + agentsObject[agent].filename; // load code, NB case sensitive
 			var AgentConstructor = require(filename); 
 
-			if (typeof agentsObject[agent].number === "undefined") agentsObject[agent].number = 0;
+			if (typeof agentsObject[agent].number === "undefined") agentsObject[agent].number = 1;
 			for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { 
 
 				if (agentsObject[agent].number == 0) { //TODO: see whether we actually want to keep this distinction
@@ -148,7 +150,7 @@ function Eve(options) {
 		
 	};
 
-	this.removeAgents = function() {}; // TODO: implement this.. will be painful, consider the webworker approach
+	this.removeAgents = function() {}; // TODO: implement this.. will be painful, consider switching to the webworker approach
 	this.listAgents = function() {
 		var agentNames = [];
 		for (var key in agents) {

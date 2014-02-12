@@ -1,10 +1,5 @@
-var AgentBase = require("./agentBase.js");  //relaying the constructor to the agentBase
-module.exports = AgentBase;
-var myAgent = AgentBase.prototype;
 
-//we're extending the prototype for the "agentbase" in agentBase.js with our own functionality
-//this allows us to abstract away nasty bookkeeping tasks and allowing the programmer to focus on the agent functionality
-// this agent is rather simple and only has some stateless math functions availabla
+var myAgent = {RPCfunctions: {}};
 
 myAgent.init = function() {
 	
@@ -47,4 +42,8 @@ myAgent.RPCfunctions.indirectAdd = function(params, callback) {
 
 
 };
+
+var AgentBase = require("./agentBase2.js");  // requiring the factory that will wrap a constructor function around our code
+module.exports = AgentBase(myAgent);
+
 
