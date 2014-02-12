@@ -7,7 +7,7 @@
 //this version of the agent uses closure to minimize typing and bookkeeping effort 
 // (at the cost of having everything in one huge init function)
 
-myAgent = {};
+var myAgent = {};
 myAgent.init = function() {
 	//by the way, you can even supply all required functions as parameters to the init functions, to almost completely get rid of "this"
 

@@ -1,70 +1,69 @@
+/*
+TODO
+Perhaps tie addresses to agentNames; Eve doesnt really need flexible addresses
+Perhaps automatically assign addresses to all existing agents for all existing transports; its the Eve way
+Then ideally also make it possible to remove transports on the fly
+*/
 
-module.exports = P2P;
+'use strict';
 
-
+module.exports = EveP2P;
 
 var addresses = {};		// agent addresses are registered in here
 var transports = {}; 	// transport services are registered in here
 
-
-
-function P2P(eve, options, addServiceFunction) {
+function EveP2P(eve, options, addServiceFunction) {
 
 	options = options || {}; //TODO: add some default config with local transport
 	
-	// interface to transports
+	// interface to transports to forward incoming message to right place
 	this.incomingMessage = function(destination, message, callback, origin) {
 
 		var to = addresses[destination];
 
 		if (typeof to != "undefined") { 
 			// TODO: possibly include a try and insert a tracking message between the actual callback and the forwarded callback
-			//        also, keep track of callbacks to prevent memory leaks in case an agent holds on to callbacks (including their closure, the originating agent) forever
 			to.pointer(message, function(reply) {
-				eve.sendDebugData({type:'reply', from:destination, to:origin}); // reversed as this is the reply
+				evedebug("Eve P2P", {type:'reply', from:destination, to:origin}); // reversed as this is the reply
 				callback(reply);
 			}); 
-			eve.sendDebugData({type:'request', from:origin, to:destination}); 
+			evedebug("Eve P2P", {type:'request', from:origin, to:destination}); 
+
 			//TODO: make sure that we dont get debug info double, by checking somewhere whether a message is local or not
+			//TODO ensure at registering callback that object at addresses[destination] has a "pointer" property of type function
 
-	// we assume that the object at addresses[destination] has a pointer field of type function; TODO ensure at registering callback
 		} else {
-			console.log("drain " + destination); 
-			// TODO possibly give a warning
-
-			//TODO: make sure that the transport can actually send something back (now http server just keeps hanging on, only times out after 2 minutes)
-			// 				probably easiest to give a return value, true or false or something, and use that to do the right thing
+			evedebug("Eve P2P", "Incoming message to nonexisting address: " + destination + " from: " + origin); 
+			// TODO: maybe sent something back / have return value, to prevent http server from hanging on 2 minutes
+			//
 		}
 
 	}
 
-	// interface to agents
-
+	// interface to agents for subscribing to an address and sending messages
 	addServiceFunction('send', function(destination, message, callback) {
 		var type = destination.substr(0, destination.indexOf(':'));
-		//console.log(type);		
 		var transport = transports[type];
 		var sender = this.owner.name;
 		if (typeof transport != "undefined") {
-			// TODO: possibly insert a try here and a tracking message, possibly keep track of callbacks (although we may count on transports not hogging callbacks)
 			transport.outgoing(destination, message, function(reply) {
-				eve.sendDebugData({type:'reply', from:destination, to:sender}); // reversed as this is the reply
+				evedebug("Eve P2P", {type:'reply', from:destination, to:sender}); // reversed as this is the reply
 				callback(reply);
 			});	
-			// we assume that the transport has a function "outgoing"; TODO ensure at loading
-			eve.sendDebugData({type:'request', from:sender, to:destination}); 
+			evedebug("Eve P2P", {type:'request', from:sender, to:destination}); 
 
+			// TODO ensure at loading that transport provides function "outgoing"
 		} else {
-			// TODO possibly give a warning
+			evedebug("Eve P2P", "Agent " + this.owner.name + " tried to use non-existing transport." );
 		}
 
 	});
 
 	addServiceFunction('on', function(type, name, callback) {
-		var address = type + "://" + name;                     //TODO perhaps insert the external url here in case of http (and zeromq?)
+		var address = type + "://" + name;    //TODO perhaps insert the external url here in case of http (and zeromq?)
 		if (typeof addresses[address] == "undefined") {
 			addresses[address] = {pointer: callback, owner: this.owner.name};
-			console.log("registered " + address + " for " + this.owner.name);
+			evedebug("Eve P2P", "registered " + address + " for " + this.owner.name);
 		} else {
 			// return error or something
 		}
@@ -87,6 +86,7 @@ function P2P(eve, options, addServiceFunction) {
 		var Transport = require(filename);
 		var transportObject = new Transport(this.incomingMessage, desiredTransports[transport], addFunctionToEve);
 		transports[transportObject.name] = transportObject;
+		evedebug("Eve P2P", "New transport loaded: " + transportObject.name);
 	}
 
 	

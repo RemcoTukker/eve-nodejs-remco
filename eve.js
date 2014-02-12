@@ -21,6 +21,7 @@ TODO:
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 Add proper checks and warning everywhere, as well as try statements in appropriate places
 prettier comments and function descriptions
+add a management agent as entry point to all service/management functions
 
 Related work:
 eve frontend to use eve in an express server and couple UIs to agents
@@ -34,13 +35,14 @@ See if we want to add some sort of authentication model (PGP?)
 
 */
 
+'use strict';
+
 module.exports = Eve; 
 
 // global debug output function to be used by all eve components
 global.evedebug = function(topic, message) {
-
-	console.log(topic + ": " + message);
-
+	console.log(topic + ": " + message); 
+	// TODO make it possible to listen only to particular event types / levels to prevent flooding
 }
 
 
@@ -86,6 +88,7 @@ function Eve(options) {
 			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
 			var Service = require(filename);
 			services[service] = new Service(this, options.services[service], addServiceFunction);
+			evedebug("Eve Core","Service loaded: " + service);
 		}
 	};
 
@@ -128,7 +131,7 @@ function Eve(options) {
 				}
 
 				if (typeof agents[agentName] != "undefined") {
-					console.log("Error, agent name " + agentName + " is already in use; please choose another name.");
+					evedebug("Eve Core","Error, agent name " + agentName + " is already in use; please choose another name.");
 				}
 
 				var ownServiceFunctions = Object.create(serviceFunctions);
@@ -137,13 +140,15 @@ function Eve(options) {
 				Object.freeze(ownServiceFunctions.owner); // to be able to identify originator of service function calls
 
 				agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
+				evedebug("Eve Core","Agent loaded: " + agentName);
+
 			}
 			
 		}
 		
 	};
 
-	this.removeAgents = function() {}; // TODO: implement this.. will be painful
+	this.removeAgents = function() {}; // TODO: implement this.. will be painful, consider the webworker approach
 	this.listAgents = function() {
 		var agentNames = [];
 		for (var key in agents) {
@@ -177,29 +182,6 @@ function Eve(options) {
 	// deal with parameters
 	options = options || {};
 	for (var option in defaultOptions) { if ( !(option in options) ) options[option] = defaultOptions[option]; }
-
-	//creating a separate http server for the debug info
-	var io = require('socket.io').listen(8090);
-	
-	var debugsockets = io.of('/debug').on('connection', function(socket) {
-
-		var agentNames = [];
-		for (var key in agents) {
-			agentNames.push(key);
-		}
-
-		socket.emit('news', { agentNames: agentNames }); // emit list of agents names
-
-//		socket.on('my other event', function (data) {
-//			console.log(data);
-//		});
-
-	})
-
-	this.sendDebugData = function(data) {
-		debugsockets.emit('newData', {data: data});
-	};
-
 
 	// start optional services (Note: do this synchronously, in case order matters)	
 	this.addServices(options.services);

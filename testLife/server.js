@@ -52,7 +52,7 @@ if (singlePrototype) {
 
 // setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {
-	services: { topics: {}, p2p: {transports: {localTransport: {}, httpTransport: {port: PORT, host: HOST} } } },
+	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpTransport: {port: PORT, host: HOST} } }, remoteDebugging: { } },
 	agents: lifeAgents
 } 
 

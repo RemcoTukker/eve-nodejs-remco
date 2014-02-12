@@ -1,5 +1,5 @@
 
-myAgent = {RPCfunctions: {}};
+var myAgent = {RPCfunctions: {}};
 
 myAgent.init = function() {
 

@@ -30,7 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 
 var eveOptions = {
-	services: { topics: {}, p2p: {transports: {localTransport: {}, httpRequest: {} } } }, // httpRequest 
+	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpRequest: {} } } }, // httpRequest 
 	agents: {filename: "mathAgent.js" }
 } 
 var eve = new Eve(eveOptions);
