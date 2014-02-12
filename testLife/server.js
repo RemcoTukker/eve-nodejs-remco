@@ -29,9 +29,6 @@ var HOST = '127.0.0.1',
 var gridsize = 5;
 var steps = 10;
 
-//using a single agent prototype: less memory, but slower   vs    using separate prototype for each agent: faster, but more memory
-var singlePrototype = true; 
-
 //agents communicate over local or http transport (NB: http is very slow, tune down gridsize and steps)
 var transport = "http";
 
@@ -41,14 +38,19 @@ var file = "myAgent4.js";
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
 
-if (singlePrototype) {
-	lifeAgents = {filename: file, number: gridsize*gridsize, options: {maxtimesteps: steps, grid: gridsize, protocol: transport} };
-} else {
-	for (var i = 0; i < gridsize*gridsize; i++) {
-		var name = "lifeAgent/" + i;
-		lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport} };
-	}
+//runnning the full test
+for (var i = 0; i < gridsize*gridsize; i = i + 1) {
+	var name = "agent_" + i;
+	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: PORT} };
 }
+
+// only initialize the odd ones for eve cross-implementation testing
+//for (var i = 1; i < gridsize*gridsize; i = i + 2) {
+//	var name = "lifeAgent/" + i;
+//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: PORT} };
+//}
+
+
 
 // setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {

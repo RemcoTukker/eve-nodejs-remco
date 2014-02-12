@@ -13,12 +13,13 @@ myAgent.init = function() {
 
 	// initialization stuff
 	var timestep = 0;
-	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("/") + 1));
-	var namePrefix = this.agentName.substring(0, this.agentName.lastIndexOf("/"));
+	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("_") + 1));
+	var namePrefix = "/agent_";  // this.agentName.substring(0, this.agentName.lastIndexOf("/"));
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var notifications = [];
 	var result = [];
+	var history = [];
 	var maxtimesteps = this.options.maxtimesteps;
 
 	var gr = this.options.grid;
@@ -39,18 +40,22 @@ myAgent.init = function() {
 	
 	var send = this.send;
 	var transport = this.options.protocol;	
+	var port = this.options.port;
 
 	// this is the function that we will use to send out the RPCs to inform the other cells of our state
 	var broadcast = function(curtimestep, curliving) {
+		var historyEntry = {cycle: curtimestep, alive: curliving};
+		history.push(historyEntry);
+		
 		for (var i = 0; i < neighbours.length; i++) {
 			if (transport == "local") {
-				send("local://" + namePrefix + "/" + neighbours[i], 
-						{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
+				send("local:/" + namePrefix + neighbours[i], 
+						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
 						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 
 			} else if (transport == "http") {
-				send("http://127.0.0.1:1337/" + namePrefix + "/" + neighbours[i], 
-						{method:"collect", id:0, params: {living: curliving, timeStep:curtimestep, from:n} }, 
+				send("http://127.0.0.1:" + port + "/agents" + namePrefix + neighbours[i], 
+						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
 						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 			}
 		}
@@ -67,13 +72,13 @@ myAgent.init = function() {
 	this.RPCfunctions.collect = function(params, callback) {
 	
 		//console.log("got data " + params.timeStep + " " + n);
-		notifications[params.timeStep]++;
-		result[params.timeStep] += params.living;
+		notifications[params.cycle]++;
+		result[params.cycle] += params.alive;
 		callback({ok:"thanks"}); //TODO: make sure we can send proper replies (with IDs for example)
 
 		//NB: we need schedule here (translates to setImmediate when no time is given), 
 		// because otherwise we may do timestep++ before sending out broadcast of current timestep
-		if (notifications[params.timeStep] == neighbours.length) this.schedule(function() {
+		if (notifications[params.cycle] == neighbours.length) this.schedule(function() {
 
 			//console.log("hi! ");
 			if (result[timestep] == 3) living = true;
@@ -89,6 +94,11 @@ myAgent.init = function() {
 			//console.log("broadcasting again: " + n + " "  + timestep + "  " + living);
 			broadcast(timestep, living);
 		});
+	}
+
+	this.RPCfunctions.getAllCycleStates = function(params, callback) {
+		
+		callback({id:0, result: history, error: null});
 	}
 
 }

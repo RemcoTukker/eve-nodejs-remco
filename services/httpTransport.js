@@ -33,14 +33,22 @@ function HttpTransport(incoming, options) {
 	
 	options = options || {}; //TODO: add default config
 
+	var baseurl = "http://"+ options.host + ":" + options.port + "/agents/";
+
 	this.name = "http";
 
 	// for outbound requests, the request module
-	this.outgoing = function(destination, message, callback) {
-		request({uri: destination, method: 'POST', json: message}, function(error, response, body) {
-			//TODO: do we want to reply something when an error happened? Or just fail silently?
+	this.outgoing = function(destination, message, sender, callback) {
+		request.post({uri: destination, headers: {'X-Eve-SenderUrl': baseurl + sender}, json: message},
+			function(error, response, body) {
+			//TODO: do we want to reply something when an error happened? Or just fail silently? Better to reply
 			callback(body); 
 		});
+
+		//request({uri: destination, method: 'POST', json: message}, function(error, response, body) {
+		//	//TODO: do we want to reply something when an error happened? Or just fail silently? Better to reply
+		//	callback(body); 
+		//});
 	}
 
 	http.globalAgent.maxSockets = 100; // this is good for doing many requests to localhost..
@@ -50,7 +58,11 @@ function HttpTransport(incoming, options) {
         var pathname = url.parse(req.url).pathname;
 		var prefix = pathname.split('/')[1];
 
-		//if (prefix == 'agents') { //agent request, route to agents //TODO see if we want to use such a prefix or not / make it optional
+		//if (prefix == 'agents') { //agent request, route to agents 
+
+		// TODO see if we want to use such a prefix or not / make it optional
+
+		// TODO read "X-Eve-SenderUrl"
 
 			var data = "";
 		    req.on("data", function(chunk) { data += chunk; });

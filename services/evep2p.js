@@ -62,7 +62,7 @@ function EveP2P(eve, options, addServiceFunction) {
 		var transport = transports[type];
 		var sender = this.owner.name;
 		if (typeof transport != "undefined") {
-			transport.outgoing(destination, message, function(reply) {
+			transport.outgoing(destination, message, sender, function(reply) {
 				evedebug("Eve P2P", {type:'reply', from:destination, to:sender}); // reversed as this is the reply
 				callback(reply);
 			});	

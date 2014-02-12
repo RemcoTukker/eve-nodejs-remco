@@ -56,9 +56,11 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 		}
 
 		//register some addresses
-		newAgent.registerAddressForRPCs('local', agentName); 
-		newAgent.registerAddressForRPCs('http', agentName);  
 
+		// TODO: move this to a more logical place..
+		newAgent.registerAddressForRPCs('local', agentName); 
+		newAgent.registerAddressForRPCs('http', "agents/" + agentName);  
+		
 
 }
 

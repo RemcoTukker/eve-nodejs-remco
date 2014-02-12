@@ -47,7 +47,7 @@ function HttpRequest(incoming, options, addToEve) {
 
 
 	// for outbound requests, the request module
-	this.outgoing = function(destination, message, callback) {
+	this.outgoing = function(destination, message, sender, callback) {
 		request({uri: destination, method: 'POST', json: message}, function(error, response, body) {
 			//TODO: do we want to reply something when an error happened? Or just fail silently?
 			callback(body); 

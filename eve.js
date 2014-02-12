@@ -126,7 +126,7 @@ function Eve(options) {
 			if (typeof agentsObject[agent].number === "undefined") agentsObject[agent].number = 1;
 			for (var instanceNumber = 0; instanceNumber < agentsObject[agent].number; instanceNumber++) { 
 
-				if (agentsObject[agent].number == 0) { //TODO: see whether we actually want to keep this distinction
+				if (agentsObject[agent].number == 1) { //TODO: see whether we actually want to keep this distinction
 					var agentName = agent;
 				} else {
 					var agentName = agent + "/" + instanceNumber;

@@ -6,7 +6,7 @@ function LocalTransport(incoming, options) {
 
 	this.name = "local";
 
-	this.outgoing = function(destination, message, callback) {
+	this.outgoing = function(destination, message, sender, callback) {
 		incoming(destination, message, callback);
 	}
 	
