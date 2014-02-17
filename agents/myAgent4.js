@@ -14,7 +14,7 @@ myAgent.init = function() {
 	var maxtimesteps = this.options.maxtimesteps;
 
 	var gr = this.options.grid;
-
+/*   this is for a field with borders
 	if (n >= gr) neighbours.push(n-gr); //upper neighbour
 	if (n < (gr*gr - gr)) neighbours.push(n+gr); //lower neighbour
 	if (n % gr != 0) neighbours.push(n-1); //left neighbour
@@ -23,6 +23,45 @@ myAgent.init = function() {
 	if ((n >= gr) && (n % gr != (gr-1))) neighbours.push(n-gr+1); //upper right
 	if ((n < (gr*gr - gr)) && (n % gr != 0)) neighbours.push(n+gr-1); //lower left
 	if ((n < (gr*gr - gr)) && (n % gr != (gr-1))) neighbours.push(n+gr+1); //lower right
+*/
+
+	// this is for a torus
+	var prop = n - gr; // upper
+	if (n < gr) prop = prop + gr*gr;
+	neighbours.push(prop);
+
+	prop = n + gr; //lower
+	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
+	neighbours.push(prop);
+
+	prop = n - 1; //left
+	if (n % gr == 0) prop = prop + gr;
+	neighbours.push(prop);
+	
+	prop = n + 1; // right
+	if (n % gr == (gr - 1)) prop = prop - gr;
+	neighbours.push(prop);
+
+	var prop = n-gr-1; //upper left
+	if (n < gr) prop = prop + gr*gr;
+	if (n % gr == 0) prop = prop + gr;
+	neighbours.push(prop);
+
+	var prop = n-gr+1; //upper right
+	if (n < gr) prop = prop + gr*gr;
+	if (n % gr == (gr - 1)) prop = prop - gr;
+	neighbours.push(prop);
+
+	var prop = n+gr-1; //lower left
+	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
+	if (n % gr == 0) prop = prop + gr;
+	neighbours.push(prop);
+
+	prop = n+gr+1; //lower right
+	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
+	if (n % gr == (gr - 1)) prop = prop - gr;
+	neighbours.push(prop);
+
 
 	for (var i = 0; i < maxtimesteps; i++) {
 		notifications[i] = 0;
@@ -61,7 +100,11 @@ myAgent.broadcast = function(curtimestep, curliving) {
 					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 
 		} else if (this.options.protocol == "http") {
-			this.send("http://127.0.0.1:" + this.options.port + "/agents" + this.namePrefix + this.neighbours[i], 
+			var reqport = (this.options.otherport != undefined && i < 4) ? this.options.otherport : this.options.port;
+				//console.log(this.options.otherport);
+				//console.log(reqport);
+
+			this.send("http://127.0.0.1:" + reqport + "/agents" + this.namePrefix + this.neighbours[i], 
 					{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:this.n} }, 
 					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 		}

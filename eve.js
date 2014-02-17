@@ -18,19 +18,22 @@
 /*
 TODO:
 
+topic agent as preparation for ARUM gateway agent
 merge http stuff together
 add a management agent as entry point to all service/management functions
+authentication!
 
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 Add proper checks and warning everywhere, as well as try statements in appropriate places
 prettier comments and function descriptions
+
 
 Related work:
 eve frontend to use eve in an express server and couple UIs to agents
 
 Stuff for version x:
 Use webworkers to protect server from agents and properly deal with setTimeout, pending callbacks, etc 
-   (use browserify to deal with requires)
+   (use browserify to deal with requires) also add agent factory types to give people a choice
 Add a store capability to prevent unused agents from taking up resources with a db
 In the same way, allow agent migration and build browser-side agent environment
 See if we want to add some sort of authentication model (PGP?)
@@ -43,7 +46,7 @@ module.exports = Eve;
 
 // global debug output function to be used by all eve components
 global.evedebug = function(topic, message) {
-	console.log(topic + ": " + message); 
+	//console.log(topic + ": " + message); 
 	// TODO make it possible to listen only to particular event types / levels to prevent flooding
 }
 

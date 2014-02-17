@@ -8,7 +8,8 @@
 	    "jade": "*",
 		"request": "latest",
 		"eventemitter2": "latest",
-		"socket.io": "latest"
+		"socket.io": "latest",
+		"zmq": "latest"
 	},
  	"engines": {
     	"node": "0.10.x"

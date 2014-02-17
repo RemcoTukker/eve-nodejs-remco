@@ -25,6 +25,8 @@ Agent functionality:
 var HOST = '127.0.0.1',
     PORT = process.argv[2] || 1337;
 
+var ownport = 8082, otherport = 8081;
+
 // game of life parameters for agents
 var gridsize = 5;
 var steps = 10;
@@ -41,20 +43,20 @@ var lifeAgents = {};
 //runnning the full test
 for (var i = 0; i < gridsize*gridsize; i = i + 1) {
 	var name = "agent_" + i;
-	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: PORT} };
+	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport} };
 }
 
 // only initialize the odd ones for eve cross-implementation testing
 //for (var i = 1; i < gridsize*gridsize; i = i + 2) {
 //	var name = "lifeAgent/" + i;
-//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: PORT} };
+//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport} };
 //}
 
 
 
 // setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {
-	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpTransport: {port: PORT, host: HOST} } }, remoteDebugging: { } },
+	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpTransport: {port: ownport, host: HOST} } }, remoteDebugging: { } },
 	agents: lifeAgents
 } 
 
@@ -64,7 +66,8 @@ var myEve = new Eve(eveOptions);
 
 // give user some info
 console.log("starting game of life with gridsize " + gridsize + " for " + steps + " timesteps" );
-var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps;
+//var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps; // for a field with borders
+var nrRPCs = gridsize * gridsize * 8 * steps; //this is for a torus
 console.log("involving " + nrRPCs + " RPCs");
 
 // after a second, give the start signal using the topics service
