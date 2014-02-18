@@ -38,9 +38,18 @@ var transport = "http";
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
 var file = "myAgent4.js"; 
 
-//var startfile = "blink55.txt";
-//fs.readFileSync(startfile); 
+var startfile = "./testLife/55blink.txt";
+var data = fs.readFileSync(startfile).toString().split('\n'); 
+data = data.filter(function(e) {return e != ''});
 
+console.log(data.length  + " " + data[0].length); // gridsize
+
+var datastring = data.join('');
+// datastring.charAt(n) == '+' / '-'
+console.log(datastring);
+for (var i = 0; i < 25; i++) {
+	console.log(datastring.charAt(i));
+}
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
@@ -54,7 +63,10 @@ var lifeAgents = {};
 // only initialize the odd ones for eve cross-implementation testing
 for (var i = 1; i < gridsize*gridsize; i = i + 2) {
 	var name = "Agent_" + i;
-	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport} };
+	var start;
+	if (datastring.charAt(i) == '+') start = true;
+	if (datastring.charAt(i) == '-') start = false;
+	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport, startvalue: start} };
 }
 
 
