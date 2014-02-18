@@ -46,16 +46,16 @@ var file = "myAgent4.js";
 var lifeAgents = {};
 
 //runnning the full test
-for (var i = 0; i < gridsize*gridsize; i = i + 1) {
-	var name = "agent_" + i;
-	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport} };
-}
+//for (var i = 0; i < gridsize*gridsize; i = i + 1) {
+//	var name = "Agent_" + i;
+//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport} };
+//}
 
 // only initialize the odd ones for eve cross-implementation testing
-//for (var i = 1; i < gridsize*gridsize; i = i + 2) {
-//	var name = "lifeAgent/" + i;
-//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport} };
-//}
+for (var i = 1; i < gridsize*gridsize; i = i + 2) {
+	var name = "Agent_" + i;
+	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport} };
+}
 
 
 

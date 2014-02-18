@@ -46,7 +46,7 @@ module.exports = Eve;
 
 // global debug output function to be used by all eve components
 global.evedebug = function(topic, message) {
-	//console.log(topic + ": " + message); 
+	console.log(topic + ": " + JSON.stringify(message)); 
 	// TODO make it possible to listen only to particular event types / levels to prevent flooding
 }
 

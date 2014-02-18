@@ -14,7 +14,7 @@ myAgent.init = function() {
 	// initialization stuff
 	var timestep = 0;
 	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("_") + 1));
-	var namePrefix = "/agent_";  // this.agentName.substring(0, this.agentName.lastIndexOf("/"));
+	var namePrefix = "/Agent_";  // this.agentName.substring(0, this.agentName.lastIndexOf("/"));
 	var living = (Math.random() < .5);
 	var neighbours = [];
 	var notifications = [];
