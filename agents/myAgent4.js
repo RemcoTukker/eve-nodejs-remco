@@ -115,6 +115,9 @@ myAgent.broadcast = function(curtimestep, curliving) {
 					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 		}
 	}
+
+	//TODO: check if we have all messages from last timestep already
+
 } 
 
 

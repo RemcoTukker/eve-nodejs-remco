@@ -122,6 +122,31 @@ myAgent.init = function() {
 		}
 
 		console.log("agent " + n + " in cycle " + curtimestep + " should have sent and received " + neighbours.length + " messages");
+
+		// check if all the input for this cycle is known already, in case all messages were in already
+		if (notifications[curtimestep] == neighbours.length) {
+
+			var oldState = history[curtimestep];
+			if (oldState.cycle != curtimestep) new Error("cycle numbers dont match");
+			var newLiving = oldState.alive;
+			if (result[curtimestep] == 3) newLiving = true;
+			if (result[curtimestep] < 2 || result[curtimestep] > 3) newLiving = false;
+
+			if (curtimestep + 1 == maxtimesteps) {
+				if (n == 1) { 
+					this.schedule(function(){
+						console.log("reached " + maxtimesteps + " timesteps");
+						console.timeEnd('run');
+
+					}, 30); // to make sure its displayed at the end
+				}
+				return;
+			}
+
+			broadcast(curtimestep + 1, newLiving);
+
+		}
+
 	} 
 
 	// subscribing to the topic that will publish the start message
