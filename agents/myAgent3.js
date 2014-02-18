@@ -93,6 +93,12 @@ myAgent.init = function() {
 		var historyEntry = {cycle: curtimestep, alive: curliving};
 		history.push(historyEntry);
 		
+		var sendHttp = function(address, rpc, i) {
+			send(address, rpc, function(answer) {
+				console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i] + " for cycle " + rpc.params.cycle);
+			});
+		}
+
 		for (var i = 0; i < neighbours.length; i++) {
 			if (transport == "local") {
 				send("local:/" + namePrefix + neighbours[i], 
@@ -106,11 +112,16 @@ myAgent.init = function() {
 				//console.log(otherport);
 				//console.log(reqport);
 
-				send("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], 
-						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
-						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+				sendHttp("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], {method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, i);
+				//send("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], 
+				//		{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
+				//		function(answer){ 
+				//			console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i]);
+				//		}); //dont have to do anything with the answer... we're just pushing the result
 			}
 		}
+
+		console.log("agent " + n + " in cycle " + curtimestep + " should have sent and received " + neighbours.length + " messages");
 	} 
 
 	// subscribing to the topic that will publish the start message
@@ -127,6 +138,7 @@ myAgent.init = function() {
 		notifications[params.cycle]++;
 		result[params.cycle] += params.alive;
 		callback({result:"thanks", error:null});
+		console.log("Agent " + n + " received " + params.cycle + " " + params.alive + " from agent " + params.from);
 
 /*
 		//NB: we need schedule here (translates to setImmediate when no time is given), 
@@ -149,28 +161,28 @@ myAgent.init = function() {
 		});
 */	
 
-	if (notifications[params.cycle] == neighbours.length) {
+		if (notifications[params.cycle] == neighbours.length) {
 		
-		var oldState = history[params.cycle];
-		if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
-		var newLiving = oldState.alive;
-		if (result[params.cycle] == 3) newLiving = true;
-		if (result[params.cycle] < 2 || result[params.cycle] > 3) newLiving = false;
+			var oldState = history[params.cycle];
+			if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
+			var newLiving = oldState.alive;
+			if (result[params.cycle] == 3) newLiving = true;
+			if (result[params.cycle] < 2 || result[params.cycle] > 3) newLiving = false;
 
-		if (params.cycle + 1 == maxtimesteps) {
-			if (n == 1) { 
-				this.schedule(function(){
-					console.log("reached " + maxtimesteps + " timesteps");
-					console.timeEnd('run');
+			if (params.cycle + 1 == maxtimesteps) {
+				if (n == 1) { 
+					this.schedule(function(){
+						console.log("reached " + maxtimesteps + " timesteps");
+						console.timeEnd('run');
 
-				}, 30); // to make sure its displayed at the end
+					}, 30); // to make sure its displayed at the end
+				}
+				return;
 			}
-			return;
+
+			broadcast(params.cycle + 1, newLiving);
+
 		}
-
-		broadcast(params.cycle + 1, newLiving);
-
-	}
 
 
 	}

@@ -30,13 +30,14 @@ var set = {};
 
 var ownport = 8082, otherport = 8081;
 
-var cmdArgs = parseArgs(process.argv.slice(2), {default: { type: 'full', delay: 1000 } } );
+var cmdArgs = parseArgs(process.argv.slice(2), {default: { type: 'full', delay: 1000, steps:10 } } );
 
 console.log(cmdArgs)  //.type + " " + cmdArgs.startdelay);
 console.log("usage node server.js -oe (odd and even) -n1000 (startdelay) ")
 
 var type = cmdArgs.type;
 var startdelay = cmdArgs.delay;
+var steps = cmdArgs.steps;
 
 // if (odd) // nothing has to change
 if (type == 'even') { // swap ownport and otherport
@@ -55,7 +56,6 @@ if (type == 'full') {  //full
 
 // game of life parameters for agents
 var gridsize = 5;
-var steps = 10;
 
 //agents communicate over local or http transport (NB: http is very slow, tune down gridsize and steps)
 var transport = "http";
