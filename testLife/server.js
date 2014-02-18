@@ -45,6 +45,9 @@ if (type == 'even') { // swap ownport and otherport
 	otherport = tmp;
 } 
 
+console.log(ownport);
+console.log(otherport);
+
 if (type == 'full') {  //full
 	otherport = ownport;
 }
