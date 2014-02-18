@@ -53,7 +53,7 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 					reply.id = parsedRPC.id;
 					callback(reply);
 				};
-				newAgent.RPCfunctions[parsedRPC.method].call(newAgent, parsedRPC.params, callback);
+				newAgent.RPCfunctions[parsedRPC.method].call(newAgent, parsedRPC.params, wrappedCallback);
 					//We need call or apply here, 'cause otherwise the RPCfunctions object will be the "this"
 					// maybe we could also use bind @on, to make this prettier
 			});
