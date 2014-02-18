@@ -9,7 +9,8 @@
 		"request": "latest",
 		"eventemitter2": "latest",
 		"socket.io": "latest",
-		"zmq": "latest"
+		"zmq": "latest",
+		"minimist": "latest"
 	},
  	"engines": {
     	"node": "0.10.x"

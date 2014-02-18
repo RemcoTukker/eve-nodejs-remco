@@ -38,10 +38,13 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 
 		// TODO fix this up
 		newAgent.schedule = function(callback, time) {  
-			var wrapperFunction = function() { callback.apply(newAgent) }; //TODO fix arguments here, remove first two, pass rest
+			//var wrapperFunction = function() { callback.apply(newAgent) }; //TODO fix arguments here, remove first two, pass rest
 
-			if (time == 0 || (typeof time != "number")) setImmediate(wrapperFunction);
-			else setTimeOut(wrapperFunction, time);
+			if (time == 0 || (typeof time != "number")) {
+				 setImmediate(function() { callback.apply(newAgent) }); 
+			} else {
+				setTimeout(function() { callback.apply(newAgent) }, time); //TODO: something goes wrong here
+			}
 
 			// TODO: keep track of timeouts for deleting
 		};  

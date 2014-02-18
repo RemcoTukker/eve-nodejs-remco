@@ -121,10 +121,11 @@ myAgent.RPCfunctions.collect = function(params, callback) {
 	
 	this.notifications[params.cycle]++;
 	this.result[params.cycle] += params.alive;
-	callback({ok:"thanks"});
+	callback({result:"thanks", error:null});
 	
 	//NB: we need schedule here (translates to setImmediate when no time is given), 
 	// because otherwise we may do timestep++ before sending out broadcast of current timestep
+/*	
 	if (this.notifications[params.cycle] == this.neighbours.length) this.schedule(function() {
 
 		if (this.result[this.timestep] == 3) this.living = true;
@@ -140,6 +141,32 @@ myAgent.RPCfunctions.collect = function(params, callback) {
 
 		this.broadcast(this.timestep, this.living);
 	});
+*/
+
+	if (this.notifications[params.cycle] == this.neighbours.length) {
+		
+		var oldState = this.history[params.cycle];
+		if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
+		var newLiving = oldState.alive;
+		if (this.result[params.cycle] == 3) newLiving = true;
+		if (this.result[params.cycle] < 2 || this.result[params.cycle] > 3) newLiving = false;
+
+		if (params.cycle + 1 == this.maxtimesteps) {
+			if (this.n == 1) { 
+				this.schedule(function(){
+					console.log("reached " + this.maxtimesteps + " timesteps");
+					console.timeEnd('run');
+
+				}, 30); // to make sure its displayed at the end
+			}
+			return;
+		}
+
+		this.broadcast(params.cycle + 1, newLiving);
+
+	}
+
+
 } 
 
 myAgent.RPCfunctions.getAllCycleStates = function(params, callback) {

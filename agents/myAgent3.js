@@ -100,7 +100,7 @@ myAgent.init = function() {
 						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 
 			} else if (transport == "http") {
-				var reqport = (otherport != undefined && (this.neighbours[i] % 2 == 0)) ? otherport : port;
+				var reqport = (otherport != undefined && (neighbours[i] % 2 == 0)) ? otherport : port;
 				//console.log(otherport);
 				//console.log(reqport);
 
@@ -124,8 +124,9 @@ myAgent.init = function() {
 		//console.log("got data " + params.timeStep + " " + n);
 		notifications[params.cycle]++;
 		result[params.cycle] += params.alive;
-		callback({ok:"thanks"}); //TODO: make sure we can send proper replies (with IDs for example)
+		callback({result:"thanks", error:null});
 
+/*
 		//NB: we need schedule here (translates to setImmediate when no time is given), 
 		// because otherwise we may do timestep++ before sending out broadcast of current timestep
 		if (notifications[params.cycle] == neighbours.length) this.schedule(function() {
@@ -144,6 +145,32 @@ myAgent.init = function() {
 			//console.log("broadcasting again: " + n + " "  + timestep + "  " + living);
 			broadcast(timestep, living);
 		});
+*/	
+
+	if (notifications[params.cycle] == neighbours.length) {
+		
+		var oldState = history[params.cycle];
+		if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
+		var newLiving = oldState.alive;
+		if (result[params.cycle] == 3) newLiving = true;
+		if (result[params.cycle] < 2 || result[params.cycle] > 3) newLiving = false;
+
+		if (params.cycle + 1 == maxtimesteps) {
+			if (n == 1) { 
+				this.schedule(function(){
+					console.log("reached " + maxtimesteps + " timesteps");
+					console.timeEnd('run');
+
+				}, 30); // to make sure its displayed at the end
+			}
+			return;
+		}
+
+		broadcast(params.cycle + 1, newLiving);
+
+	}
+
+
 	}
 
 	this.RPCfunctions.getAllCycleStates = function(params, callback) {

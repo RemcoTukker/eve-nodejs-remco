@@ -21,12 +21,34 @@ Agent functionality:
 */
 
 var fs = require('fs');
+var parseArgs = require('minimist');
 
 // http p2p transport settings
-var HOST = '127.0.0.1',
-    PORT = process.argv[2] || 1337;
+var HOST = '127.0.0.1';
+
+var set = {};
 
 var ownport = 8082, otherport = 8081;
+
+var cmdArgs = parseArgs(process.argv.slice(2), {default: { type: 'full', delay: 1000 } } );
+
+console.log(cmdArgs)  //.type + " " + cmdArgs.startdelay);
+console.log("usage node server.js -oe (odd and even) -n1000 (startdelay) ")
+
+var type = cmdArgs.type;
+var startdelay = cmdArgs.delay;
+
+// if (odd) // nothing has to change
+if (type == 'even') { // swap ownport and otherport
+	var tmp = ownport;
+	ownport = otherport;
+	otherport = tmp;
+} 
+
+if (type == 'full') {  //full
+	otherport = ownport;
+}
+
 
 // game of life parameters for agents
 var gridsize = 5;
@@ -36,7 +58,7 @@ var steps = 10;
 var transport = "http";
 
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
-var file = "myAgent4.js"; 
+var file = "myAgent3.js"; 
 
 var startfile = "./testLife/55blink.txt";
 var data = fs.readFileSync(startfile).toString().split('\n'); 
@@ -46,22 +68,12 @@ console.log(data.length  + " " + data[0].length); // gridsize
 
 var datastring = data.join('');
 // datastring.charAt(n) == '+' / '-'
-console.log(datastring);
-for (var i = 0; i < 25; i++) {
-	console.log(datastring.charAt(i));
-}
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
 
-//runnning the full test
-//for (var i = 0; i < gridsize*gridsize; i = i + 1) {
-//	var name = "Agent_" + i;
-//	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport} };
-//}
-
 // only initialize the odd ones for eve cross-implementation testing
-for (var i = 1; i < gridsize*gridsize; i = i + 2) {
+if (type == 'full' || type == 'odd') for (var i = 1; i < gridsize*gridsize; i = i + 2) {
 	var name = "Agent_" + i;
 	var start;
 	if (datastring.charAt(i) == '+') start = true;
@@ -69,7 +81,14 @@ for (var i = 1; i < gridsize*gridsize; i = i + 2) {
 	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport, startvalue: start} };
 }
 
-
+// only initialize the even ones for eve cross-implementation testing
+if (type == 'full' || type == 'even') for (var i = 0; i < gridsize*gridsize; i = i + 2) {
+	var name = "Agent_" + i;
+	var start;
+	if (datastring.charAt(i) == '+') start = true;
+	if (datastring.charAt(i) == '-') start = false;
+	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport, startvalue: start} };
+}
 
 // setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {
@@ -88,6 +107,6 @@ var nrRPCs = gridsize * gridsize * 8 * steps; //this is for a torus
 console.log("involving " + nrRPCs + " RPCs");
 
 // after a second, give the start signal using the topics service
-setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, 10000);
+setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, startdelay);
 
 
