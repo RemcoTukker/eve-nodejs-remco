@@ -100,7 +100,7 @@ myAgent.broadcast = function(curtimestep, curliving) {
 					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 
 		} else if (this.options.protocol == "http") {
-			var reqport = (this.options.otherport != undefined && i < 4) ? this.options.otherport : this.options.port;
+			var reqport = (this.options.otherport != undefined && (this.neighbours[i] % 2 == 0)) ? this.options.otherport : this.options.port;
 				//console.log(this.options.otherport);
 				//console.log(reqport);
 

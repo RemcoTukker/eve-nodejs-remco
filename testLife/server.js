@@ -20,6 +20,7 @@ Agent functionality:
 
 */
 
+var fs = require('fs');
 
 // http p2p transport settings
 var HOST = '127.0.0.1',
@@ -36,6 +37,10 @@ var transport = "http";
 
 //myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
 var file = "myAgent4.js"; 
+
+//var startfile = "blink55.txt";
+//fs.readFileSync(startfile); 
+
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};

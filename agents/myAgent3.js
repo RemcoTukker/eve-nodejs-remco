@@ -95,7 +95,7 @@ myAgent.init = function() {
 						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
 
 			} else if (transport == "http") {
-				var reqport = (otherport != undefined && i < 4) ? otherport : port;
+				var reqport = (otherport != undefined && (this.neighbours[i] % 2 == 0)) ? otherport : port;
 				//console.log(otherport);
 				//console.log(reqport);
 
