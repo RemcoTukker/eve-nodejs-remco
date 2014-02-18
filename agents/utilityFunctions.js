@@ -49,6 +49,10 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 		newAgent.registerAddressForRPCs = function(protocol, address) {
 			newAgent.on(protocol, address, function(parsedRPC, callback) {
 					//TODO: keep track of ID, either insert it in intermediate callback or pass it along to RPC function
+				var wrappedCallback = function(reply) {
+					reply.id = parsedRPC.id;
+					callback(reply);
+				};
 				newAgent.RPCfunctions[parsedRPC.method].call(newAgent, parsedRPC.params, callback);
 					//We need call or apply here, 'cause otherwise the RPCfunctions object will be the "this"
 					// maybe we could also use bind @on, to make this prettier

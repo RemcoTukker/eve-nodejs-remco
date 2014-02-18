@@ -143,7 +143,7 @@ myAgent.init = function() {
 
 	this.RPCfunctions.getAllCycleStates = function(params, callback) {
 		
-		callback({id:0, result: history, error: null});
+		callback({result: history, error: null});
 	}
 
 }

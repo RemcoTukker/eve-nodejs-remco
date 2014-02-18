@@ -139,7 +139,7 @@ myAgent.RPCfunctions.collect = function(params, callback) {
 
 myAgent.RPCfunctions.getAllCycleStates = function(params, callback) {
 		
-		callback({id:0, result: this.history, error: null});
+		callback({result: this.history, error: null});
 }
 
 var AgentBase = require("./agentBase2.js");  // requiring the factory that will wrap a constructor function around our code

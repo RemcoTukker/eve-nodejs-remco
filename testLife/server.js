@@ -76,6 +76,6 @@ var nrRPCs = gridsize * gridsize * 8 * steps; //this is for a torus
 console.log("involving " + nrRPCs + " RPCs");
 
 // after a second, give the start signal using the topics service
-setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, 1000);
+setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, 10000);
 
 
