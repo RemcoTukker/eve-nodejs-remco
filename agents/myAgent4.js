@@ -10,63 +10,44 @@ myAgent.init = function() {
 	if (this.options.startvalue == undefined)	{
 		var living = (Math.random() < .5);
 	} else {
-		console.log(n + " " + this.options.startvalue);
+		//console.log(n + " " + this.options.startvalue);
 		var living = this.options.startvalue;
 	}
 	var neighbours = [];
 	var notifications = [];
 	var result = [];
 	var maxtimesteps = this.options.maxtimesteps;
-
 	var gr = this.options.grid;
-/*   this is for a field with borders
-	if (n >= gr) neighbours.push(n-gr); //upper neighbour
-	if (n < (gr*gr - gr)) neighbours.push(n+gr); //lower neighbour
-	if (n % gr != 0) neighbours.push(n-1); //left neighbour
-	if (n % gr != (gr - 1)) neighbours.push(n+1); //right neighbour
-	if ((n >= gr) && (n % gr != 0)) neighbours.push(n-gr-1); //upper left
-	if ((n >= gr) && (n % gr != (gr-1))) neighbours.push(n-gr+1); //upper right
-	if ((n < (gr*gr - gr)) && (n % gr != 0)) neighbours.push(n+gr-1); //lower left
-	if ((n < (gr*gr - gr)) && (n % gr != (gr-1))) neighbours.push(n+gr+1); //lower right
-*/
 
 	// this is for a torus
 	var prop = n - gr; // upper
 	if (n < gr) prop = prop + gr*gr;
 	neighbours.push(prop);
-
 	prop = n + gr; //lower
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	neighbours.push(prop);
-
 	prop = n - 1; //left
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-	
 	prop = n + 1; // right
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
-
 	var prop = n-gr-1; //upper left
 	if (n < gr) prop = prop + gr*gr;
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-
 	var prop = n-gr+1; //upper right
 	if (n < gr) prop = prop + gr*gr;
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
-
 	var prop = n+gr-1; //lower left
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-
 	prop = n+gr+1; //lower right
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
-
 
 	for (var i = 0; i < maxtimesteps; i++) {
 		notifications[i] = 0;
@@ -82,7 +63,7 @@ myAgent.init = function() {
 	this.maxtimesteps = maxtimesteps;
 	this.living = living;
 	this.timestep = timestep;
-	this.history = [];
+	this.history = [{cycle:0, alive:living}];
 
 	// subscribing to the topic that will publish the start message
 	this.subscribe('service/eveserver', function(message) {
@@ -94,82 +75,65 @@ myAgent.init = function() {
 
 // this is the function that we will use to send out the RPCs to inform the other cells of our state
 myAgent.broadcast = function(curtimestep, curliving) {
-	//console.log("sending sometin:" + curtimestep);
-	var historyEntry = {cycle: curtimestep, alive: curliving};
-	this.history.push(historyEntry);
+
+	var send = this.send;	
+
+	var sendWithDebug = function(address, rpc, i) {
+		send(address, rpc, function(answer) {
+			//console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i] + " for cycle " + rpc.params.cycle);
+		});
+	}
 
 	for (var i = 0; i < this.neighbours.length; i++) {
 		if (this.options.protocol == "local") {
-			this.send("local:/" + this.namePrefix + this.neighbours[i], 
-					{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:this.n} }, 
-					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+			sendWithDebug("local:/" + this.namePrefix + this.neighbours[i], {method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:this.n} }, i);
 
 		} else if (this.options.protocol == "http") {
-			//var reqport = (this.options.otherport != undefined && (this.neighbours[i] % 2 == 0)) ? this.options.otherport : this.options.port;
-				//console.log(this.options.otherport);
-				//console.log(reqport);
-			var reqport = ((this.neighbours[i] % 2) == (this.n % 2)) this.options.port : this.options.otherport;
-
-			this.send("http://127.0.0.1:" + reqport + "/agents" + this.namePrefix + this.neighbours[i], 
-					{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:this.n} }, 
-					function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
+			var reqport = ((this.neighbours[i] % 2) == (this.n % 2)) ? this.options.port : this.options.otherport;
+			sendWithDebug("http://127.0.0.1:" + reqport + "/agents" + this.namePrefix + this.neighbours[i], 
+						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:this.n} }, i);
 		}
 	}
 
-	//TODO: check if we have all messages from last timestep already
-
 } 
 
+myAgent.newCycle = function(cycle) {
+
+	//console.log("advancing to cycle " + cycle);
+	var oldState = this.history[cycle - 1];
+
+	var newLiving = oldState.alive;
+	if (this.result[cycle - 1] == 3) newLiving = true;
+	if (this.result[cycle - 1] < 2 || this.result[cycle - 1] > 3) newLiving = false;
+
+	var historyEntry = {cycle:cycle, alive:newLiving};
+	this.history.push(historyEntry);
+	
+	if (cycle == this.maxtimesteps) {
+		if (this.n < 2) { 
+			this.schedule(function(){
+				console.log("Agent " + this.n + " reached " + this.maxtimesteps + " timesteps");
+				console.timeEnd('run');
+
+			}, 30); // to make sure its displayed at the end / does give a slightly more negative result
+		}
+		return;
+	}
+
+	this.broadcast(cycle, newLiving);
+
+	// check if we by chance already have all incoming messages of next cycle
+	if (this.notifications[cycle] == this.neighbours.length) this.newCycle(cycle + 1);
+
+}
 
 myAgent.RPCfunctions.collect = function(params, callback) {
 	
 	this.notifications[params.cycle]++;
 	this.result[params.cycle] += params.alive;
 	callback({result:"thanks", error:null});
-	
-	//NB: we need schedule here (translates to setImmediate when no time is given), 
-	// because otherwise we may do timestep++ before sending out broadcast of current timestep
-/*	
-	if (this.notifications[params.cycle] == this.neighbours.length) this.schedule(function() {
 
-		if (this.result[this.timestep] == 3) this.living = true;
-		if (this.result[this.timestep] < 2 || this.result[this.timestep] > 3) this.living = false;
-		this.timestep++;
-		if (this.timestep == this.maxtimesteps) {
-			if (this.n == 0) { 
-				console.log("reached " + this.maxtimesteps + " timesteps");
-				console.timeEnd('run');
-			}
-			return;
-		}
-
-		this.broadcast(this.timestep, this.living);
-	});
-*/
-
-	if (this.notifications[params.cycle] == this.neighbours.length) {
-		
-		var oldState = this.history[params.cycle];
-		if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
-		var newLiving = oldState.alive;
-		if (this.result[params.cycle] == 3) newLiving = true;
-		if (this.result[params.cycle] < 2 || this.result[params.cycle] > 3) newLiving = false;
-
-		if (params.cycle + 1 == this.maxtimesteps) {
-			if (this.n == 1) { 
-				this.schedule(function(){
-					console.log("reached " + this.maxtimesteps + " timesteps");
-					console.timeEnd('run');
-
-				}, 30); // to make sure its displayed at the end
-			}
-			return;
-		}
-
-		this.broadcast(params.cycle + 1, newLiving);
-
-	}
-
+	if (this.notifications[params.cycle] == this.neighbours.length && this.history.length == params.cycle + 1) this.newCycle(params.cycle + 1);
 
 } 
 

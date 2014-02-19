@@ -12,208 +12,143 @@ myAgent.init = function() {
 	//by the way, you can even supply all required functions as parameters to the init functions, to almost completely get rid of "this"
 
 	// initialization stuff
-	var timestep = 0;
 	var n = parseInt(this.agentName.substring(this.agentName.lastIndexOf("_") + 1));
 	var namePrefix = "/Agent_";  // this.agentName.substring(0, this.agentName.lastIndexOf("/"));
+	var history = [];	
+	//set the initial state: 
 	if (this.options.startvalue == undefined)	{
-		var living = (Math.random() < .5);
+		history.push({cycle:0, alive:(Math.random() < .5)})
 	} else {
-		console.log(n + " " + this.options.startvalue);
-		var living = this.options.startvalue;
+		history.push({cycle:0, alive:this.options.startvalue})
 	}	
 	var neighbours = [];
 	var notifications = [];
 	var result = [];
-	var history = [];
+
+	// for use in the functions that dont have 'this'	
 	var maxtimesteps = this.options.maxtimesteps;
-
+	var send = this.send;
+	var transport = this.options.protocol;	
+	var port = this.options.port;
+	var otherport = this.options.otherport;
+	var schedule = this.schedule;
 	var gr = this.options.grid;
-
-/*  this is for a simple field with borders
-	if (n >= gr) neighbours.push(n-gr); //upper neighbour
-	if (n < (gr*gr - gr)) neighbours.push(n+gr); //lower neighbour
-	if (n % gr != 0) neighbours.push(n-1); //left neighbour
-	if (n % gr != (gr - 1)) neighbours.push(n+1); //right neighbour
-	if ((n >= gr) && (n % gr != 0)) neighbours.push(n-gr-1); //upper left
-	if ((n >= gr) && (n % gr != (gr-1))) neighbours.push(n-gr+1); //upper right
-	if ((n < (gr*gr - gr)) && (n % gr != 0)) neighbours.push(n+gr-1); //lower left
-	if ((n < (gr*gr - gr)) && (n % gr != (gr-1))) neighbours.push(n+gr+1); //lower right
-*/
 	
-	// this is for a torus
+	// calculate neighbours in a torus
 	var prop = n - gr; // upper
 	if (n < gr) prop = prop + gr*gr;
 	neighbours.push(prop);
-
 	prop = n + gr; //lower
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	neighbours.push(prop);
-
 	prop = n - 1; //left
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-	
 	prop = n + 1; // right
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
-
 	var prop = n-gr-1; //upper left
 	if (n < gr) prop = prop + gr*gr;
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-
 	var prop = n-gr+1; //upper right
 	if (n < gr) prop = prop + gr*gr;
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
-
 	var prop = n+gr-1; //lower left
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	if (n % gr == 0) prop = prop + gr;
 	neighbours.push(prop);
-
 	prop = n+gr+1; //lower right
 	if (n >= (gr*gr-gr)) prop = prop - gr*gr;
 	if (n % gr == (gr - 1)) prop = prop - gr;
 	neighbours.push(prop);
 
-
+	// initializing to zero
 	for (var i = 0; i < maxtimesteps; i++) {
 		notifications[i] = 0;
 		result[i] = 0;
 	}
 	
-	var send = this.send;
-	var transport = this.options.protocol;	
-	var port = this.options.port;
-	var otherport = this.options.otherport;
-
 	// this is the function that we will use to send out the RPCs to inform the other cells of our state
 	var broadcast = function(curtimestep, curliving) {
-		var historyEntry = {cycle: curtimestep, alive: curliving};
-		history.push(historyEntry);
 		
-		var sendHttp = function(address, rpc, i) {
+		//console.log("agent " + n + " in cycle " + curtimestep + " starts sending messages");
+
+		var sendWithDebug = function(address, rpc, i) {
 			send(address, rpc, function(answer) {
-				console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i] + " for cycle " + rpc.params.cycle);
+				//console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i] + " for cycle " + rpc.params.cycle);
 			});
 		}
-
+				
 		for (var i = 0; i < neighbours.length; i++) {
 			if (transport == "local") {
-				send("local:/" + namePrefix + neighbours[i], 
-						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
-						function(answer){ }); //dont have to do anything with the answer... we're just pushing the result
-
+				sendWithDebug("local:/" + namePrefix + neighbours[i], {method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, i);
 			} else if (transport == "http") {
-				//var reqport = (otherport != undefined && (neighbours[i] % 2 == 0)) ? otherport : port;
-				
 				var reqport = ((neighbours[i] % 2) == (n % 2)) ? port : otherport;
-				//console.log(otherport);
-				//console.log(reqport);
-
-				sendHttp("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], {method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, i);
-				//send("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], 
-				//		{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, 
-				//		function(answer){ 
-				//			console.log("Agent " + n + " got answer " + answer.result + " " + answer.error + " from " + neighbours[i]);
-				//		}); //dont have to do anything with the answer... we're just pushing the result
+				sendWithDebug("http://127.0.0.1:" + reqport + "/agents" + namePrefix + neighbours[i], 
+						{method:"collect", id:0, params: {alive: curliving, cycle:curtimestep, from:n} }, i);
 			}
 		}
 
-		console.log("agent " + n + " in cycle " + curtimestep + " should have sent and received " + neighbours.length + " messages");
-
-		// check if all the input for this cycle is known already, in case all messages were in already
-		if (notifications[curtimestep] == neighbours.length) {
-
-			var oldState = history[curtimestep];
-			if (oldState.cycle != curtimestep) new Error("cycle numbers dont match");
-			var newLiving = oldState.alive;
-			if (result[curtimestep] == 3) newLiving = true;
-			if (result[curtimestep] < 2 || result[curtimestep] > 3) newLiving = false;
-
-			if (curtimestep + 1 == maxtimesteps) {
-				if (n == 1) { 
-					this.schedule(function(){
-						console.log("reached " + maxtimesteps + " timesteps");
-						console.timeEnd('run');
-
-					}, 30); // to make sure its displayed at the end
-				}
-				return;
-			}
-
-			broadcast(curtimestep + 1, newLiving);
-
-		}
-
-	} 
-
-	// subscribing to the topic that will publish the start message
-	this.subscribe('service/eveserver', function(message) {
-		if (message.content == "start")	broadcast(timestep, living);
-	});
-
-	// Add a function that can be called by RPCs from other cells, collecting neighbouring states
-	
-	this.RPCfunctions = {}; //TODO possible to move this to agent factory
-	this.RPCfunctions.collect = function(params, callback) {
-	
-		//console.log("got data " + params.timeStep + " " + n);
-		notifications[params.cycle]++;
-		result[params.cycle] += params.alive;
-		callback({result:"thanks", error:null});
-		console.log("Agent " + n + " received " + params.cycle + " " + params.alive + " from agent " + params.from);
-
-/*
-		//NB: we need schedule here (translates to setImmediate when no time is given), 
-		// because otherwise we may do timestep++ before sending out broadcast of current timestep
-		if (notifications[params.cycle] == neighbours.length) this.schedule(function() {
-
-			//console.log("hi! ");
-			if (result[timestep] == 3) living = true;
-			if (result[timestep] < 2 || result[timestep] > 3) living = false;
-			timestep++;
-			if (timestep == maxtimesteps) {
-				if (n == 0) { 
-					console.log("reached " + maxtimesteps + " timesteps");
-					console.timeEnd('run');
-				}
-				return;
-			}
-			//console.log("broadcasting again: " + n + " "  + timestep + "  " + living);
-			broadcast(timestep, living);
-		});
-*/	
-
-		if (notifications[params.cycle] == neighbours.length) {
-		
-			var oldState = history[params.cycle];
-			if (oldState.cycle != params.cycle) new Error("cycle numbers dont match");
-			var newLiving = oldState.alive;
-			if (result[params.cycle] == 3) newLiving = true;
-			if (result[params.cycle] < 2 || result[params.cycle] > 3) newLiving = false;
-
-			if (params.cycle + 1 == maxtimesteps) {
-				if (n == 1) { 
-					this.schedule(function(){
-						console.log("reached " + maxtimesteps + " timesteps");
-						console.timeEnd('run');
-
-					}, 30); // to make sure its displayed at the end
-				}
-				return;
-			}
-
-			broadcast(params.cycle + 1, newLiving);
-
-		}
-
+		//console.log("agent " + n + " in cycle " + curtimestep + " should have sent and received " + neighbours.length + " messages");
 
 	}
 
+	// here the new state is calculated
+	var newCycle = function(cycle) {
+
+		var oldState = history[cycle - 1];
+		var newLiving = oldState.alive;
+		if (result[cycle - 1] == 3) newLiving = true;
+		if (result[cycle - 1] < 2 || result[cycle - 1] > 3) newLiving = false;
+
+		var historyEntry = {cycle:cycle, alive:newLiving};
+		history.push(historyEntry);
+
+		//message for once we are done
+		if (cycle == maxtimesteps) {
+			if (n < 2) { 
+				schedule(function(){
+					console.log("Agent " + n + " reached " + maxtimesteps + " timesteps");
+					console.timeEnd('run');
+				}, 30); // to make sure its displayed at the end / does give a slightly more negative result
+			}
+			return;
+		}
+
+		broadcast(cycle, newLiving); 
+
+		//console.log("Agent " + n + " advanced to cycle " + cycle );
+
+		// check if we by chance already have all incoming messages of the current cycle, and if so, advance to next one immediately
+		if (notifications[cycle] == neighbours.length) newCycle(cycle + 1);
+
+	}
+ 
+
+	// subscribing to the topic that will publish the start message
+	this.subscribe('service/eveserver', function(message) {
+		if (message.content == "start")	broadcast(0, history[0].alive);
+	});
+
+	// Add the RPC functions
+	this.RPCfunctions = {}; //TODO possible to move this to agent factory
+	// this receives the new states from other agents
+	this.RPCfunctions.collect = function(params, callback) {
+	
+		notifications[params.cycle]++;
+		result[params.cycle] += params.alive;
+		callback({result:"thanks", error:null});
+		//console.log("Agent " + n + " received " + params.cycle + " " + params.alive + " from agent " + params.from);
+
+		// if we got all neighbours' states and we know our own, advance a cycle
+		if (notifications[params.cycle] == neighbours.length && history.length == params.cycle + 1) newCycle(params.cycle + 1);
+ 
+	}
+
+	// this basically gives a simple log to the outside world
 	this.RPCfunctions.getAllCycleStates = function(params, callback) {
-		
 		callback({result: history, error: null});
 	}
 

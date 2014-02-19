@@ -23,21 +23,22 @@ Agent functionality:
 var fs = require('fs');
 var parseArgs = require('minimist');
 
-// http p2p transport settings
-var HOST = '127.0.0.1';
 
-var set = {};
+var defaultparams =  { type: 'full', delay: 1000, steps:10, initfile:"./testLife/55blink.txt", transport:"http", agentFile:"myAgent3.js", ownport:8082, otherport:8081 };
+var cmdArgs = parseArgs(process.argv.slice(2), {default: defaultparams} );
 
-var ownport = 8082, otherport = 8081;
-
-var cmdArgs = parseArgs(process.argv.slice(2), {default: { type: 'full', delay: 1000, steps:10 } } );
-
-console.log(cmdArgs)  //.type + " " + cmdArgs.startdelay);
-console.log("usage node server.js -oe (odd and even) -n1000 (startdelay) ")
+console.log("usage node server.js --type=[full|odd|even] --delay=[n ms startdelay] --steps=[n cycles] --transport [http|local]")
+console.log("default parameters: " + JSON.stringify(defaultparams));
 
 var type = cmdArgs.type;
 var startdelay = cmdArgs.delay;
 var steps = cmdArgs.steps;
+var startfile = cmdArgs.initfile;
+var transport = cmdArgs.transport;
+var file = cmdArgs.agentFile;
+var ownport = cmdArgs.ownport;
+var otherport = cmdArgs.otherport;
+
 
 // if (odd) // nothing has to change
 if (type == 'even') { // swap ownport and otherport
@@ -45,38 +46,27 @@ if (type == 'even') { // swap ownport and otherport
 	ownport = otherport;
 	otherport = tmp;
 } 
-
-console.log(ownport);
-console.log(otherport);
-
-if (type == 'full') {  //full
+if (type == 'full') {  //full, all agents run on this server
 	otherport = ownport;
 }
 
-
-// game of life parameters for agents
-var gridsize = 5;
-
-//agents communicate over local or http transport (NB: http is very slow, tune down gridsize and steps)
-var transport = "http";
-
-//myAgent1.js and myAgent2.js implement the same functionality in a slightly different coding style (1 seems slightly faster)
-var file = "myAgent3.js"; 
-
-var startfile = "./testLife/55blink.txt";
+// read initial states
 var data = fs.readFileSync(startfile).toString().split('\n'); 
 data = data.filter(function(e) {return e != ''});
 
-console.log(data.length  + " " + data[0].length); // gridsize
+if (data.length != data[0].length) new Error('this game of life only support square fields'); // TODO: also support rectangular field, to proper input checking on file
+var gridsize = data.length;
 
 var datastring = data.join('');
-// datastring.charAt(n) == '+' / '-'
 
 // setting up the object that lets Eve know which agents to initialize at startup
 var lifeAgents = {};
 
-// only initialize the odd ones for eve cross-implementation testing
-if (type == 'full' || type == 'odd') for (var i = 1; i < gridsize*gridsize; i = i + 2) {
+for (var i = 0; i < gridsize*gridsize; i = i + 1) {
+
+	if ((type == 'odd') && ((i % 2) == 0)) continue;
+	if ((type == 'even') && ((i % 2) == 1)) continue;
+
 	var name = "Agent_" + i;
 	var start;
 	if (datastring.charAt(i) == '+') start = true;
@@ -84,18 +74,10 @@ if (type == 'full' || type == 'odd') for (var i = 1; i < gridsize*gridsize; i = 
 	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport, startvalue: start} };
 }
 
-// only initialize the even ones for eve cross-implementation testing
-if (type == 'full' || type == 'even') for (var i = 0; i < gridsize*gridsize; i = i + 2) {
-	var name = "Agent_" + i;
-	var start;
-	if (datastring.charAt(i) == '+') start = true;
-	if (datastring.charAt(i) == '-') start = false;
-	lifeAgents[name] = {filename: file, options: {maxtimesteps: steps, grid: gridsize, protocol: transport, port: ownport, otherport: otherport, startvalue: start} };
-}
 
 // setting up the object that lets eve know which services to initialize at startup
 var eveOptions = {
-	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpTransport: {port: ownport, host: HOST} } }, remoteDebugging: { } },
+	services: { topics: {}, evep2p: {transports: {localTransport: {}, httpTransport: {port: ownport, host: '127.0.0.1'} } }, remoteDebugging: { } },
 	agents: lifeAgents
 } 
 
@@ -105,11 +87,10 @@ var myEve = new Eve(eveOptions);
 
 // give user some info
 console.log("starting game of life with gridsize " + gridsize + " for " + steps + " timesteps" );
-//var nrRPCs = ( ((gridsize - 2)*(gridsize - 2)*8) + (4*(gridsize - 2)*5) + 4*3 ) * steps; // for a field with borders
 var nrRPCs = gridsize * gridsize * 8 * steps; //this is for a torus
 console.log("involving " + nrRPCs + " RPCs");
 
 // after a second, give the start signal using the topics service
-setTimeout(function() {myEve.useServiceFunction('publish', "service/eveserver", {content:"start"}); console.time('run'); }, startdelay);
+setTimeout(function() {console.time('run'); myEve.useServiceFunction('publish', "service/eveserver", {content:"start"});  }, startdelay);
 
 

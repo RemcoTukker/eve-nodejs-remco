@@ -7,7 +7,8 @@ function LocalTransport(incoming, options) {
 	this.name = "local";
 
 	this.outgoing = function(destination, message, sender, callback) {
-		incoming(destination, message, callback);
+		setImmediate(incoming(destination, message, callback));  //to make function async, just like other transports? 
+		//incoming(destination, message, callback)
 	}
 	
 }
