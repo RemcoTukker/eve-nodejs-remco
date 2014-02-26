@@ -7,12 +7,15 @@ This is a node.js implementation.
 Documentation of Eve is available on http://almende.github.com/eve
 
 Author:  Remco Tukker, 2013-2014; Jos de Jong 2011-2012
+
 License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 
 # Usage
 
 download or clone
+
 npm install
+
 node testLife/server
 
 This will run a game of life of which the starting parameters and setup of eve is done in tests/server and which uses the agents in the agents folder. Included services are a local transport and a http transport (which is rather slow). Codebase is small and should be easy to digest.
