@@ -21,6 +21,7 @@ TODO:
 topic agent as preparation for ARUM gateway agent
 merge http stuff together
 add a management agent as entry point to all service/management functions
+start describing the API and think about clear names for everything
 authentication!
 
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
@@ -56,30 +57,35 @@ var defaultOptions = {
 	services : { topics: {}, p2p: {transports: {localTransport: {} } } }
 };
 
-// the object that will contain all the services cq agents
-var services = {};
-var agents = {};
-// My opinion on differences between services and agents:
-// Services should be able to touch the Eve internals, agents shouldnt. 
-// Also, services are intended for use by agents within this server, while agents are intended to be contacted by anyone
-
-// object to hold references to service functions that agents can use
-var serviceFunctions = {owner: {name:"Eve Owner"}}; 
-// this is the prototype, all agents will receive their own descendant, with the owner field set to their name
-// only the holder of the eve object can access these functions on the prototype itself, hence "Eve Owner"
-// TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. 
-var addServiceFunction = function(name, callback) {
-
-	// TODO: freeze the serviceFunctions object to make sure agents dont mess with it
-	//       then to change the serviceFunctions object, just make a copy, make changes, freeze it
-	//       and then update the prototype of all descendants (using a function on the prototype :-)
-
-	// TODO: check if we dont overwrite anything
-	serviceFunctions[name] = callback;
-}
-
+	
 function Eve(options) {
 	
+	// define some state variables for Eve: 
+	
+	// the object that will contain all the services cq agents
+	var services = {};
+	var agents = {};
+	// My opinion on differences between services and agents:
+	// Services should be able to touch the Eve internals, agents shouldnt. 
+	// Also, services are intended for use by agents within this server, while agents are intended to be contacted by anyone
+
+	// object to hold references to service functions that agents can use
+	var serviceFunctions = {owner: {name:"Eve Owner"}}; 
+	// this is the prototype, all agents will receive their own descendant, with the owner field set to their name
+	// only the holder of the eve object can access these functions on the prototype itself, hence "Eve Owner"
+	// TODO: perhaps add an indirection to make sure agents dont crash on calling non-existing service functions.. 
+	var addServiceFunction = function(name, callback) {
+
+		// TODO: freeze the serviceFunctions object to make sure agents dont mess with it
+		//       then to change the serviceFunctions object, just make a copy, make changes, freeze it
+		//       and then update the prototype of all descendants (using a function on the prototype :-)
+
+		// TODO: check if we dont overwrite anything
+		serviceFunctions[name] = callback;
+	}
+
+
+
 	// to make sure that code doesnt fail if new is omitted
 	if ( !(this instanceof Eve) ) return new Eve(options); 
 
@@ -88,11 +94,12 @@ function Eve(options) {
 	 */
 
 	//Starting services. This should be done synchronously I guess...
-	this.addServices = function(services) {
-		for (var service in services) {
-			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive!
+	this.addServices = function(servicesObject) {
+		for (var service in servicesObject) {
+			var filename = "./services/" + service + ".js";  //NOTE: this is case-sensitive! 
+			//TODO: maybe make it responsibility of user to give path and so on; unless we want to automatize service management...
 			var Service = require(filename);
-			services[service] = new Service(this, options.services[service], addServiceFunction);
+			services[service] = new Service(this, servicesObject[service], addServiceFunction);
 			evedebug("Eve Core","Service loaded: " + service);
 		}
 	};

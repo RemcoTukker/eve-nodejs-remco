@@ -1,5 +1,9 @@
 module.exports = utilities;
 
+//TODO: most of the work done in this function shouldnt be necessary / explicit at all, 
+// defining and loading a service should be enough to let an agent use them!
+
+
 function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 
 		// initializing some fields that may be useful
@@ -51,6 +55,7 @@ function utilities(newAgent, agentName, filename, options, serviceFunctions ) {
 
 		newAgent.registerAddressForRPCs = function(protocol, address) {
 			newAgent.on(protocol, address, function(parsedRPC, callback) {
+					// TODO: rename this to register or get rid of it completely
 					//TODO: keep track of ID, either insert it in intermediate callback or pass it along to RPC function
 				var wrappedCallback = function(reply) {
 					reply.id = parsedRPC.id;
