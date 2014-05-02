@@ -16,13 +16,13 @@
 
 'use strict';
 
-var zmq = require('zmq'), sock1 = zmq.socket('push'), sock2 = zmq.socket('pull');
+//var zmq = require('zmq'), sock1 = zmq.socket('push'), sock2 = zmq.socket('pull');
 
 module.exports = ZMQ;
 
 
 function ZMQ(eve, options, addServiceFunction) {
-	sock1.bindSync('tcp://127.0.0.1:1330');
+	/*sock1.bindSync('tcp://127.0.0.1:1330');
 	console.log('Producer bound to port 1330');
 
 	setInterval(function(){
@@ -37,6 +37,6 @@ function ZMQ(eve, options, addServiceFunction) {
 	sock2.on('message', function(msg){
 	  console.log('work: %s', msg.toString());
 	});
-
+*/
 
 }

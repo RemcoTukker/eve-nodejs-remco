@@ -9,7 +9,7 @@ var routes = require('./routes');
 var http = require('http');
 var path = require('path');
 
-var Eve = require('../eve.js');
+var Eve = require('../index.js');
 
 var app = express();
 

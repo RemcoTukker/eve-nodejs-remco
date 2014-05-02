@@ -82,7 +82,7 @@ var eveOptions = {
 } 
 
 // starting Eve
-var Eve = require('../eve.js');
+var Eve = require('../index.js');
 var myEve = new Eve(eveOptions);
 
 // give user some info

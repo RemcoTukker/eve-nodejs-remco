@@ -32,15 +32,18 @@ Eve NodeJS has been created for convenient development and deployment of multi-a
 ### Features
   - JavaScript agents are easy to develop and can be extended on the fly
   - Communication using Eve
-    - Uses JSON RPC: human readable, useable from any language (Eve has Java and JavaScript implementation at the moment)
+    - Uses JSON RPC: human readable, useable from any language (Eve has Java and JavaScript implementation at the moment, C++ planned)
     - Multiple protocols: HTTP, XMPP, ZeroMQ, ...
   - Excellent agent mobility, from server to browser
   - Good performance (for an interpreted language): ....
+  - Thousands of agents in the browser, millions on a server (?)
+  - Agent UIs are very loosely coupled: they simply use the JSON RPC calls for interaction
 
 
 
+## Getting Started
 
-## Installation and Your First Agent
+### Installation
 
 [Installation instructions]
 
@@ -58,6 +61,8 @@ In Eve NodeJS, an agent can be in three states: hibernated, suspended or running
 The whole lifecycle is thus: hibernated -> running -> suspended -> running -> hibernated.
 
 In order to support this lifecycle, the agent is preferably stored in two separate files [hrm, actually, maybe this is a bit silly, not really necessary. Only thing we can do is make a standard constructor/desctructor/etc file available for simplest use cases]: one for the agent functionality and logic (or "state"), the second for the agent lifecycle management. In code, this translates respectively to a plain object for the functionality/state, and constructor wrapper code for the lifecycle management. These files are connected according to the CommonJS standard: a simple 'require' to the constructor wrapper from the agent object.
+
+Agents are thought of as more or less self-contained units. Therefore, it is not recommended to use prototypical inheritance for agents: it adds dependencies that are very hard to track and are likely to give unexpected results. As far as I can see, it's only use case is reduction of memory footprint for very large numbers of agents; even in that case it's better to move functions that are shared between all agents into a separate agent or service, or just use an additional server. It's a bit more work, but gives significant simplification of the system, in particular when moving agents between servers.
 
 ### Agent Mobility
 
@@ -93,7 +98,7 @@ Additionally, for now, we make the following assumptions:
 
 ### Code Structure
 
-The entrance file is eve.js. This module is actually merely a crude plugin system that is tweaked towards an agent platform: it maintains a list of services and a list of agents. The services register "servicefunctions" that eve.js makes available to the agents. Thus, something is supposed to be a service when it is only relevant for the agents at the local server and it is more than one or just a handful of agents using it. All other functionality belongs in an agent. The minimal service Eve NodeJS should have available is a way of communication, which is currently defined in EveP2P.js. EveP2P.js itself then loads the js files for particular transports.
+The entrance file is index.js. This module is actually merely a crude plugin system that is tweaked towards an agent platform: it maintains a list of services and a list of agents. The services register "servicefunctions" that eve.js makes available to the agents. Thus, something is supposed to be a service when it is only relevant for the agents at the local server and it is more than one or just a handful of agents using it. All other functionality belongs in an agent. The minimal service Eve NodeJS should have available is a way of communication, which is currently defined in EveP2P.js. EveP2P.js itself then loads the js files for particular transports.
 
 
 

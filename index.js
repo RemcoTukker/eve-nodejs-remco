@@ -27,6 +27,7 @@ authentication!
 introduce an onerror for uncaught exceptions (for integrity of files, etc), add typechecking everywhere it could go wrong
 Add proper checks and warning everywhere, as well as try statements in appropriate places
 prettier comments and function descriptions
+use ecmascript 6 proxies to clean up some parts of the code 
 
 
 Related work:
@@ -47,7 +48,7 @@ module.exports = Eve;
 
 // global debug output function to be used by all eve components
 global.evedebug = function(topic, message) {
-	//console.log(topic + ": " + JSON.stringify(message)); 
+	console.log(topic + ": " + JSON.stringify(message)); 
 	// TODO make it possible to listen only to particular event types / levels to prevent flooding
 }
 
@@ -89,6 +90,9 @@ sock4.on('message', function(msg) {
 	
 function Eve(options) {
 	
+	// to make sure that code doesnt fail if new is omitted
+	if ( !(this instanceof Eve) ) return new Eve(options); 
+
 	// define some state variables for Eve: 
 	
 	// the object that will contain all the services cq agents
@@ -112,11 +116,6 @@ function Eve(options) {
 		// TODO: check if we dont overwrite anything
 		serviceFunctions[name] = callback;
 	}
-
-
-
-	// to make sure that code doesnt fail if new is omitted
-	if ( !(this instanceof Eve) ) return new Eve(options); 
 
 	/*
 	 *	Service management functions
@@ -151,7 +150,8 @@ function Eve(options) {
 
 	// Starting agents
 	// TODO complete proper checks and warnings.
-	this.addAgents = function(agentsObject) { 
+	// TODO users themselves should determine where the agents are, instead of looking in a standard folder..
+	this.loadAgents = function(agentsObject) { 
 		// in case the user specifies only one agent, embed it in a superobject
 		if ((typeof agentsObject.filename != "undefined") && (typeof agentsObject.filename.filename === "undefined")) {
 
@@ -181,18 +181,21 @@ function Eve(options) {
 					evedebug("Eve Core","Error, agent name " + agentName + " is already in use; please choose another name.");
 				}
 
-				var ownServiceFunctions = Object.create(serviceFunctions);
-				ownServiceFunctions.owner = {name: agentName};
-				Object.freeze(ownServiceFunctions);
-				Object.freeze(ownServiceFunctions.owner); // to be able to identify originator of service function calls
-
-				agents[agentName] = new AgentConstructor(agentName, filename, agentsObject[agent].options, ownServiceFunctions);				
-				evedebug("Eve Core","Agent loaded: " + agentName);
-
+				this.addAgent(AgentConstructor, agentName, filename, agentsObject[agent].options);
 			}
 			
 		}
 		
+	};
+
+	this.addAgent = function(Agent, name, filename, options) {
+		var ownServiceFunctions = Object.create(serviceFunctions);
+		ownServiceFunctions.owner = {name: name};
+		Object.freeze(ownServiceFunctions);
+		Object.freeze(ownServiceFunctions.owner); // to be able to identify originator of service function calls
+
+		agents[name] = new Agent(name, filename, options, ownServiceFunctions);				
+		evedebug("Eve Core","Agent loaded: " + name);
 	};
 
 	this.removeAgents = function() {}; // TODO: implement this.. will be painful, consider switching to the webworker approach
@@ -234,7 +237,7 @@ function Eve(options) {
 	this.loadServices(options.services);
 	
 	// start optional agents
-	this.addAgents(options.agents);
+	this.loadAgents(options.agents);
 
 }
 

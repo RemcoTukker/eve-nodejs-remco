@@ -15,7 +15,7 @@
  */
 
 
-var io = require('socket.io').listen(8090); 
+//var io = require('socket.io').listen(8090); 
 // TODO possibly use an existing http server (probably best to merge this as an option into the httpTransport)
 // TODO make it possible to listen only to particular event types / levels to prevent flooding
 
@@ -25,7 +25,7 @@ module.exports = RemoteDebugging;
 
 
 function RemoteDebugging(eve, options, addServiceFunction) {
-	
+	/*
 	var debugsockets = io.of('/debug').on('connection', function(socket) {
 
 		// send some initial info
@@ -50,5 +50,5 @@ function RemoteDebugging(eve, options, addServiceFunction) {
 
 		originalDebug(topic, message);		
 
-	}
+	}*/
 }
