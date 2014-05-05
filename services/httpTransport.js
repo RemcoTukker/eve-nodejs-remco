@@ -14,55 +14,93 @@
  * limitations under the License.
  */
 
+// HTTP transport for Eve Nodejs
+//
+// TODO
+// use external express server
+// check if we should send the whole url to incoming or just the agent name (makes sense, why would incoming need that info?)
+// handle a failed http request
+// do something with "X-Eve-SenderUrl" ? 
+// ...
+
 var http = require('http'),
     url = require('url'),
-	request = require('request');
+	request = require('request'),
+	log = require('npmlog');
 
 'use strict';
 
 module.exports = HttpTransport;
 
-	/**
-	 * Start a server handling the HTTP JSON RPC requests
-	 * @param {Number} port
-	 * @param {String} host
-	 */
+// options: 
+// host: name of the server
+// port: port of the server
+// prefix: [optional] prefix to use in the url before the actual agent names, eg http://localhost:3000/prefix/agentname
+// server: [optional] external (express) http server that will route incoming http requests for us
 
+var defaultOptions = {
+	//config.prefix: "agents",
+	host: "localhost",
+	port: "3000"
+};
 
-function HttpTransport(incoming, options) {
-	
-	options = options || {}; //TODO: add default config
+function HttpTransport(incoming, opts) {
 
-	var baseurl = "http://"+ options.host + ":" + options.port + "/agents/";
+	// handle the services config	
+	var options = {};
+	for(var i in opts){ options[i] = { value: opts[i], enumerable: true, writeable: true, configurable: true } };
+	var config = Object.create(defaultOptions, options); 
 
+	// make this service known to he user of the service
 	this.name = "http";
 
-	// for outbound requests, the request module
+	// see which address we are using
+	var baseurl = "http://" + config.host + ":" + config.port + "/";
+	if (typeof config.prefix !== 'undefined') baseurl = baseurl + config.prefix + "/";
+	log.verbose('Transport', 'HTTP server baseurl: ' + baseurl);
+
+	// first make sure that agents can do http requests:
 	this.outgoing = function(destination, message, sender, callback) {
 		request.post({uri: destination, headers: {'X-Eve-SenderUrl': baseurl + sender}, json: message},
 			function(error, response, body) {
 			//TODO: do we want to reply something when an error happened? Or just fail silently? Better to reply
+			log.silly('Transport', 'Received HTTP response for ' + sender);
 			callback(body); 
 		});
 
-		//request({uri: destination, method: 'POST', json: message}, function(error, response, body) {
-		//	//TODO: do we want to reply something when an error happened? Or just fail silently? Better to reply
-		//	callback(body); 
-		//});
+		log.silly('Transport', 'Did HTTP request for ' + sender);
 	}
 
-	http.globalAgent.maxSockets = 100; // this is good for doing many requests to localhost..
+	//this seems to help in the case of many simultaneous requests to localhost; dont know why though
+	//http.globalAgent.maxSockets = 100;
 
-	// for inbound requests, a http server
-    var serv = http.createServer(function (req, res) {
-        var pathname = url.parse(req.url).pathname;
-		var prefix = pathname.split('/')[1];
 
-		//if (prefix == 'agents') { //agent request, route to agents 
 
-		// TODO see if we want to use such a prefix or not / make it optional
 
-		// TODO read "X-Eve-SenderUrl"
+	// now make sure that agents can receive requests
+
+	// check if we have an external server
+	if (typeof config.server === "undefined") {
+		// if we dont have one, set up our own
+		var serv = http.createServer(function (req, res) {
+	        log.silly('Transport', 'Got a HTTP request');
+
+	        var pathname = url.parse(req.url).pathname;
+			
+	        // if we are using a prefix, check it
+	        if (typeof config.prefix !== 'undefined') {
+	        	var prefix = pathname.split('/')[1];
+	        	// reply with error if prefix is incorrect
+	        	if (prefix < config.prefix || prefix > config.prefix) {
+	        		res.writeHead(200, {'Content-Type': 'application/json'});
+		            res.end(JSON.stringify({id:null, error:"Invalid prefix, to reach agents use " + baseurl + " /agentname"}));
+		            log.verbose('Transport', 'Got a HTTP request with a wrong prefix');
+	        	}
+	        }
+
+			//req.headers.host
+			//req.headers['X-Eve-SenderUrl']
+			// TODO do something with this info, eg pass on to agents? "X-Eve-SenderUrl"
 
 			var data = "";
 		    req.on("data", function(chunk) { data += chunk; });
@@ -71,32 +109,36 @@ function HttpTransport(incoming, options) {
 
 				try {
 					var parsedRPC = JSON.parse(data);
-					var eventName = "http." + pathname;
+					log.silly('Transport', 'Got a HTTP request with RPC ' + data);
 
+					// TODO see if we want to send the whole req.url including host, port and prefix, and not just the agent name
 					incoming("http:/" + req.url, parsedRPC, function(reply) {
 						res.writeHead(200, {'Content-Type': 'application/json'});
 		            	res.end(JSON.stringify(reply));
+						log.silly('Transport', 'Answered a HTTP request with ' + JSON.stringify(reply));
 					});
 	
 				} catch(err) { //probably message couldnt be parsed
 					res.writeHead(200, {'Content-Type': 'application/json'});
-		            res.end(JSON.stringify({id:null, result:null, error:"Unkown error, are you sure you sent a valid JSON RPC? " + err}));
+		            res.end(JSON.stringify({id:null, error:"Unkown error, are you sure you sent a valid JSON RPC? " + err}));
+		            log.verbose('Transport', 'Got a HTTP request that couldnt be parsed: ' + JSON.stringify(err));
 				}
 		    });
+    	});
 
-		//} else {  //try to route the request to one of our webpages
-		//	var now = new Date();
-  		//	var html = "<p>Hello World, in case you want more functionality on webpages, simply embed eve in an express server.</p>"; 
- 		//	res.end(html);
-		//}
-    });
+		serv.listen(config.port, config.host);
+		log.verbose('Transport', 'HTTP server started');
+	} else {
+		// if we do have an external server, use it (how exactly; assume that it is express?)
 
-	serv.listen(options.port, options.host);
+		//TODO use external express server
+		log.verbose('Transport', 'External HTTP server used');
+
+	}
 
 
-
-	//TODO: maybe add some notification that this service is up and running
-
+	//some notification that this service is up and running
+	log.info('Transport', 'HTTP transport is available now');
 }
 
 

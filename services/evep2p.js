@@ -25,13 +25,28 @@ Then ideally also make it possible to remove transports on the fly
 
 module.exports = EveP2P;
 
+var log = require('npmlog');
+
+//TODO: this should be coupled to agent names
 var addresses = {};		// agent addresses are registered in here
+
 var transports = {}; 	// transport services are registered in here
 
-function EveP2P(eve, options, addServiceFunction) {
 
-	options = options || {}; //TODO: add some default config with local transport
-	
+var defaultOptions = {
+
+};
+
+function EveP2P(opts, addServiceFunction) {
+
+	// handle the config
+	var options = {};
+	for(var i in opts){ options[i] = { value: opts[i], enumerable: true, writeable: true, configurable: true } };
+	var config = Object.create(defaultOptions, options); 
+
+
+
+
 	// interface to transports to forward incoming message to right place
 	this.incomingMessage = function(destination, message, callback, origin) {
 
@@ -85,22 +100,24 @@ function EveP2P(eve, options, addServiceFunction) {
 		}
 	});
 
+
+/*
+//move to eve itself, or remove it completely
 	// management functions for eve users
-	
 	var addFunctionToEve = function(name, fn) {
 		eve[name] = fn; //TODO: add check that we're not overwriting stuff
 			//TODO: then move this whole function and the check down to Eve itself, _maybe_ then we dont have to give the whole eve object to the services
 	};
 
 	// TODO: management functions for dynamically adding and removing transports, as well as shutting down this service
-	
+*/	
 
 	// add the transports from options
 	var desiredTransports = options.transports;
 	for (var transport in desiredTransports) {
 		var filename = "./" + transport + ".js";  //NOTE: this is case-sensitive!
 		var Transport = require(filename);
-		var transportObject = new Transport(this.incomingMessage, desiredTransports[transport], addFunctionToEve);
+		var transportObject = new Transport(this.incomingMessage, desiredTransports[transport]);
 		transports[transportObject.name] = transportObject;
 		evedebug("Eve P2P", "New transport loaded: " + transportObject.name);
 	}
