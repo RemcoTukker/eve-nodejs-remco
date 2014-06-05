@@ -39,6 +39,7 @@ function HttpRequest(incoming, options, addToEve) {
 
 	// add a function to let an external server 
 	addToEve("incomingFromExpress", function(req, res) {
+		//console.log(req.body);
 		incoming("http:/" + req.url, req.body, function(reply) {
 			res.writeHead(200, {'Content-Type': 'application/json'});
         	res.end(JSON.stringify(reply) );  
